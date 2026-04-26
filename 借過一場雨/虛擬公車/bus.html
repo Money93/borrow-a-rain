@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>借過一場雨</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #000; /* 螢幕外框背景 */
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* 防止滾動 */
+        }
+        
+        /* 隱藏滾動條 */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* 模擬電子紙/LCD螢幕的質感 */
+        .e-ink-screen {
+            background-color: #e2e8f0;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        /* 公車路線號碼的藥丸形狀 */
+        .route-pill {
+            background-color: #4b5563; /* 深灰色 */
+            border-radius: 4rem;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center p-2 sm:p-4 md:p-8">
+
+    <!-- 模擬實體站牌藍色金屬外殼 -->
+    <div class="relative w-full h-full max-w-[834px] max-h-[1194px] bg-[#1a90d9] rounded-[2rem] md:rounded-[3rem] shadow-2xl flex flex-col p-4 md:p-8 border-4 border-[#157bbd]">
+        
+        <!-- 頂部：站名與時間資訊 -->
+        <div class="flex justify-between items-end mb-4 px-2 text-white">
+            <div>
+                <h1 class="text-2xl md:text-4xl font-bold tracking-widest">借過一場雨</h1>
+                <p class="text-sm md:text-lg opacity-80 mt-1">Rain Echoes</p>
+            </div>
+            <div class="text-right">
+                <div id="clock" class="text-3xl md:text-5xl font-bold font-mono">14:30</div>
+                <div id="date" class="text-sm md:text-lg opacity-80 mt-1">2026/04/25 (六)</div>
+            </div>
+        </div>
+
+        <!-- 中間：顯示器螢幕 -->
+        <div class="e-ink-screen flex-1 w-full rounded-2xl md:rounded-3xl overflow-hidden flex flex-col border-8 border-[#cfd8e3]">
+            
+            <!-- 公車列表容器 -->
+            <div id="bus-list" class="flex-1 overflow-y-auto hide-scrollbar bg-[#f3f4f6]">
+                <!-- JavaScript 將會動態生成內容 -->
+            </div>
+
+        </div>
+
+        <!-- 底部：模擬外殼上的感測器/鏡頭 (像圖片底部的小黑點) -->
+        <div class="mt-4 md:mt-6 flex justify-center items-center h-4 md:h-8">
+            <div class="w-3 h-3 md:w-5 md:h-5 bg-[#0f5c8c] rounded-full shadow-inner border border-[#1a90d9]"></div>
+        </div>
+    </div>
+
+    <script>
+        // 桃園公車模擬數據
+        const buses = [
+            { route: '155', routeEn: '', time: 12, maxTime: 15 },
+            { route: '156', routeEn: '', time: -1, maxTime: 30 }, // -1 代表 未發車已過
+            { route: '208', routeEn: '', time: 6, maxTime: 20 },
+            { route: '中壢', routeEn: 'Zhongli', time: 0, maxTime: 10 }, // 0 代表 即將進站
+            { route: '1', routeEn: '', time: 9, maxTime: 15 },
+            { route: '內壢', routeEn: 'Neili', time: 0, maxTime: 25 },
+            { route: '169', routeEn: '', time: 24, maxTime: 40 },
+            { route: '桃園', routeEn: 'Taoyuan', time: -1, maxTime: 45 }
+        ];
+
+        const busListEl = document.getElementById('bus-list');
+
+        // 渲染公車列表
+        function renderBuses() {
+            busListEl.innerHTML = '';
+            buses.forEach(bus => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between px-6 py-5 md:px-10 md:py-8 border-b-2 border-gray-300 bg-[#eef2f6]';
+                
+                // 處理左側路線標籤 (有時會有英文站名)
+                let routeHtml = '';
+                if (bus.routeEn) {
+                    routeHtml = `
+                        <div class="route-pill w-[140px] md:w-[180px] h-[70px] md:h-[90px] flex flex-col items-center justify-center text-white shadow-md">
+                            <span class="text-3xl md:text-5xl font-bold tracking-wider leading-none">${bus.route}</span>
+                            <span class="text-xs md:text-sm font-medium mt-1 tracking-widest text-gray-300">${bus.routeEn}</span>
+                        </div>
+                    `;
+                } else {
+                    routeHtml = `
+                        <div class="route-pill w-[140px] md:w-[180px] h-[70px] md:h-[90px] flex items-center justify-center text-white shadow-md">
+                            <span class="text-4xl md:text-6xl font-bold tracking-wider">${bus.route}</span>
+                        </div>
+                    `;
+                }
+
+                // 處理右側狀態顯示
+                let statusHtml = '';
+                if (bus.time > 0) {
+                    // 正常倒數
+                    statusHtml = `
+                        <div class="flex flex-col items-end">
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-5xl md:text-7xl font-bold text-gray-800">${bus.time}</span>
+                                <span class="text-2xl md:text-4xl font-bold text-gray-700">分鐘</span>
+                            </div>
+                            <div class="text-xl md:text-2xl text-gray-500 font-medium tracking-widest mt-1">Min</div>
+                        </div>
+                    `;
+                } else if (bus.time === 0) {
+                    // 即將進站
+                    statusHtml = `
+                        <div class="flex flex-col items-end">
+                            <div class="text-3xl md:text-5xl font-bold text-gray-800 tracking-wide">即將進站</div>
+                            <div class="text-xl md:text-2xl text-gray-500 font-medium tracking-widest mt-1">ComingSoon</div>
+                        </div>
+                    `;
+                } else {
+                    // 未發車已過
+                    statusHtml = `
+                        <div class="flex flex-col items-end">
+                            <div class="text-2xl md:text-4xl font-bold text-gray-500 tracking-wide">未發車已過</div>
+                            <div class="text-lg md:text-xl text-gray-400 font-medium tracking-widest mt-2">Ser.Over</div>
+                        </div>
+                    `;
+                }
+
+                row.innerHTML = routeHtml + statusHtml;
+                busListEl.appendChild(row);
+            });
+        }
+
+        // 更新頂部時鐘
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}`;
+            
+            const days = ['日', '一', '二', '三', '四', '五', '六'];
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const day = days[now.getDay()];
+            document.getElementById('date').textContent = `${year}/${month}/${date} (${day})`;
+        }
+
+        // 模擬公車時間動態變化
+        function simulateDataUpdate() {
+            buses.forEach(bus => {
+                if (bus.time > 0) {
+                    // 隨機減少時間
+                    if (Math.random() > 0.4) {
+                        bus.time -= 1;
+                    }
+                } else if (bus.time === 0) {
+                    // 進站後變成已過站
+                    if (Math.random() > 0.6) {
+                        bus.time = -1;
+                    }
+                } else if (bus.time < 0) {
+                    // 過站一段時間後，重置為新的發車時間
+                    if (Math.random() > 0.8) {
+                        bus.time = Math.floor(Math.random() * bus.maxTime) + 5;
+                    }
+                }
+            });
+            renderBuses();
+        }
+
+        // 初始化
+        renderBuses();
+        updateClock();
+
+        // 設定定時器
+        setInterval(updateClock, 1000); // 每秒更新時鐘
+        setInterval(simulateDataUpdate, 8000); // 每8秒更新一次公車狀態模擬真實跳動
+    </script>
+</body>
+</html>
