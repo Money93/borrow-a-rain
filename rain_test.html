@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雨中傘面視覺呈現</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a0c;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        .controls {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 90%;
+            max-width: 500px;
+            transition: opacity 0.3s;
+        }
+        .mode-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+        .mode-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .mode-btn:not(.active) {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+        }
+        .mode-btn:not(.active):hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <div class="flex flex-wrap gap-2 mb-4 justify-center">
+            <button onclick="setMode(1)" id="btn-1" class="mode-btn active">方案一：漣漪</button>
+            <button onclick="setMode(2)" id="btn-2" class="mode-btn">方案二：水珠匯集</button>
+            <button onclick="setMode(3)" id="btn-3" class="mode-btn">方案三：持續滑落</button>
+        </div>
+        
+        <div class="flex gap-2">
+            <input type="text" id="textInput" placeholder="輸入文字..." class="bg-slate-900 border border-slate-700 rounded px-3 py-2 flex-grow focus:outline-none focus:ring-2 focus:ring-blue-500" maxlength="20">
+            <button onclick="addMessage()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-medium">更新文字</button>
+        </div>
+        <p class="text-[10px] text-slate-500 mt-2 text-center">點擊傘面可手動觸發雨滴</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const textInput = document.getElementById('textInput');
+
+        let width, height, umbrellaCenter;
+        let mode = 1;
+        let particles = [];
+        let ripples = [];
+        let drops = [];
+        let currentMessage = "下雨了";
+        let messageHistory = ["安靜的傘面", "細聽雨聲", "雨落無痕"];
+        
+        // 文字取樣點
+        let textPoints = [];
+        let stateTimer = 0;
+        let rainIntensity = 1; // 0 to 1
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            umbrellaCenter = { x: width / 2, y: height / 2 - 50 };
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Ripple {
+            constructor(x, y, message) {
+                this.x = x;
+                this.y = y;
+                this.r = 0;
+                this.maxR = 150 + Math.random() * 100;
+                this.opacity = 1;
+                this.message = message;
+                this.speed = 1.5 + Math.random();
+            }
+
+            update() {
+                this.r += this.speed;
+                this.opacity = 1 - (this.r / this.maxR);
+                return this.r < this.maxR;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(147, 197, 253, ${this.opacity * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                if (this.message) {
+                    ctx.font = `bold ${16 + this.r/10}px sans-serif`;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.message, this.x, this.y - this.r - 10);
+                }
+            }
+        }
+
+        class Drop {
+            constructor(x, y, isStatic = false) {
+                this.reset(x, y, isStatic);
+            }
+
+            reset(x, y, isStatic) {
+                this.x = x || Math.random() * width;
+                this.y = y || -20;
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.vx = 0;
+                this.vy = isStatic ? 0 : 5 + Math.random() * 5;
+                this.size = 1 + Math.random() * 2;
+                this.life = 1;
+                this.isStatic = isStatic; // 是否在傘面上
+                this.color = 'rgba(180, 210, 255, 0.6)';
+                this.joined = false;
+                this.slideSpeed = 0;
+            }
+
+            update() {
+                if (!this.isStatic) {
+                    this.y += this.vy;
+                    // 傘面碰撞檢測 (簡化為圓形)
+                    const dx = this.x - umbrellaCenter.x;
+                    const dy = this.y - umbrellaCenter.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const umbrellaR = 250;
+
+                    if (dist < umbrellaR && this.y > umbrellaCenter.y - 100) {
+                        if (mode === 1) {
+                            ripples.push(new Ripple(this.x, this.y, Math.random() > 0.7 ? getRandMsg() : null));
+                            this.reset();
+                        } else {
+                            this.isStatic = true;
+                            this.vy = 0;
+                        }
+                    }
+
+                    if (this.y > height) this.reset();
+                } else {
+                    // 在傘面上的行為
+                    if (mode === 2 || mode === 3) {
+                        if (textPoints.length > 0 && !this.joined) {
+                            const p = textPoints[Math.floor(Math.random() * textPoints.length)];
+                            this.targetX = p.x;
+                            this.targetY = p.y;
+                            
+                            const dx = this.targetX - this.x;
+                            const dy = this.targetY - this.y;
+                            this.x += dx * 0.05;
+                            this.y += dy * 0.05;
+
+                            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+                                this.joined = true;
+                            }
+                        }
+
+                        // 滑落邏輯
+                        if (stateTimer > 300 || (mode === 3 && this.joined && Math.random() > 0.98)) {
+                            this.slideSpeed += 0.2;
+                            this.y += this.slideSpeed;
+                            this.x += (this.x - umbrellaCenter.x) * 0.01;
+                        }
+                    }
+                    
+                    if (this.y > height || Math.abs(this.x - umbrellaCenter.x) > 400) {
+                        this.reset();
+                    }
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        function getRandMsg() {
+            return messageHistory[Math.floor(Math.random() * messageHistory.length)];
+        }
+
+        function setMode(m) {
+            mode = m;
+            stateTimer = 0;
+            ripples = [];
+            drops.forEach(d => d.joined = false);
+            
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${m}`).classList.add('active');
+
+            if (m === 1) {
+                // 開始大雨滴落
+                ripples.push(new Ripple(umbrellaCenter.x, umbrellaCenter.y, currentMessage));
+            } else {
+                sampleText(currentMessage);
+            }
+        }
+
+        function addMessage() {
+            const val = textInput.value.trim();
+            if (val) {
+                currentMessage = val;
+                messageHistory.push(val);
+                if (messageHistory.length > 10) messageHistory.shift();
+                setMode(mode);
+                textInput.value = "";
+            }
+        }
+
+        // 文字取樣：將文字轉換為座標點
+        function sampleText(text) {
+            const offscreen = document.createElement('canvas');
+            const octx = offscreen.getContext('2d');
+            offscreen.width = width;
+            offscreen.height = height;
+            
+            octx.font = `bold 80px sans-serif`;
+            octx.textAlign = 'center';
+            octx.textBaseline = 'middle';
+            octx.fillText(text, umbrellaCenter.x, umbrellaCenter.y);
+            
+            const imageData = octx.getImageData(0, 0, width, height).data;
+            textPoints = [];
+            // 步進採樣
+            const step = 6;
+            for (let y = 0; y < height; y += step) {
+                for (let x = 0; x < width; x += step) {
+                    const alpha = imageData[(y * width + x) * 4 + 3];
+                    if (alpha > 128) {
+                        textPoints.push({ x, y });
+                    }
+                }
+            }
+        }
+
+        // 初始化雨滴
+        for (let i = 0; i < 150; i++) {
+            drops.push(new Drop());
+        }
+
+        function drawUmbrella() {
+            // 繪製簡約傘面陰影
+            ctx.beginPath();
+            ctx.arc(umbrellaCenter.x, umbrellaCenter.y, 260, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fill();
+
+            // 傘骨架構
+            ctx.beginPath();
+            ctx.arc(umbrellaCenter.x, umbrellaCenter.y, 250, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 簡單的反光感
+            const gradient = ctx.createRadialGradient(
+                umbrellaCenter.x - 50, umbrellaCenter.y - 50, 50,
+                umbrellaCenter.x, umbrellaCenter.y, 250
+            );
+            gradient.addColorStop(0, 'rgba(60, 60, 80, 0.1)');
+            gradient.addColorStop(1, 'rgba(20, 20, 30, 0.3)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            stateTimer++;
+
+            drawUmbrella();
+
+            // 更新與繪製漣漪 (方案一)
+            if (mode === 1) {
+                ripples = ripples.filter(r => {
+                    const active = r.update();
+                    r.draw();
+                    return active;
+                });
+
+                // 隨機落雨
+                if (Math.random() < 0.05 * rainIntensity) {
+                    const rx = umbrellaCenter.x + (Math.random() - 0.5) * 400;
+                    const ry = umbrellaCenter.y + (Math.random() - 0.5) * 400;
+                    const dist = Math.sqrt(Math.pow(rx-umbrellaCenter.x, 2) + Math.pow(ry-umbrellaCenter.y, 2));
+                    if (dist < 240) {
+                        ripples.push(new Ripple(rx, ry, Math.random() > 0.8 ? getRandMsg() : null));
+                    }
+                }
+            }
+
+            // 更新與繪製雨滴 (方案二、三)
+            drops.forEach(d => {
+                d.update();
+                d.draw();
+            });
+
+            // 方案二的循環
+            if (mode === 2 && stateTimer > 600) {
+                setMode(2); // 重置循環
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (mode === 1) {
+                ripples.push(new Ripple(x, y, currentMessage));
+            } else {
+                for(let i=0; i<10; i++) {
+                    drops.push(new Drop(x + (Math.random()-0.5)*20, y + (Math.random()-0.5)*20, true));
+                }
+            }
+        });
+
+        // 啟動
+        setMode(1);
+        animate();
+    </script>
+</body>
+</html>
