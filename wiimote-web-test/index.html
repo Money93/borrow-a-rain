@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>借過一把傘 - 搖桿 API 測試</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: '微軟正黑體', sans-serif;
+            color: white;
+            text-align: center;
+            background-color: #1a1a1a;
+            transition: background-color 0.8s ease; 
+        }
+        h1 { font-size: 4rem; margin-bottom: 10px; }
+        p { font-size: 1.5rem; opacity: 0.8; }
+        #debug { position: absolute; bottom: 20px; font-family: monospace; color: #ccc; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
+    </style>
+</head>
+<body>
+
+    <h1 id="sceneText">請按一下 Wiimote 按鈕連線</h1>
+    <p id="subText">然後開始轉動測試</p>
+    <div id="debug">等待手把連線...</div>
+
+    <script>
+        const sceneText = document.getElementById('sceneText');
+        const subText = document.getElementById('subText');
+        const debugInfo = document.getElementById('debug');
+
+        // 持續偵測手把狀態的迴圈
+        function gameLoop() {
+            // 抓取目前連接的所有手把
+            const gamepads = navigator.getGamepads();
+            
+            if (gamepads[0]) {
+                const gp = gamepads[0];
+                
+                // 讀取左搖桿的 X 軸 (索引值通常是 0，你可以根據測試網站的結果修改)
+                // 讀出來的數值會是 -1.0 到 1.0
+                let rawValue = gp.axes[0]; 
+                
+                // 將 -1.0 ~ 1.0 轉換成 0 ~ 360 度的角度
+                let angle = (rawValue + 1) * 180;
+                
+                debugInfo.innerText = `搖桿原始值: ${rawValue.toFixed(2)} | 轉換角度: ${Math.round(angle)}°`;
+
+                // 根據角度切換畫面
+                if (angle >= 0 && angle <= 120) {
+                    document.body.style.backgroundColor = '#d35400'; 
+                    sceneText.innerText = '第一階段：初遇';
+                    subText.innerText = '浮現上一位使用者的「手寫字跡」留言';
+                } 
+                else if (angle > 120 && angle <= 240) {
+                    document.body.style.backgroundColor = '#2980b9'; 
+                    sceneText.innerText = '第二階段：旅程';
+                    subText.innerText = '萬花筒般的地圖足跡與雨滴擴散紋理';
+                } 
+                else {
+                    document.body.style.backgroundColor = '#27ae60'; 
+                    sceneText.innerText = '第三階段：尾聲';
+                    subText.innerText = '不同主人的記憶交疊...';
+                }
+            }
+            // 告訴瀏覽器在下一次重繪畫面前，再執行一次這個檢查
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 啟動偵測迴圈
+        gameLoop();
+    </script>
+</body>
+</html>
