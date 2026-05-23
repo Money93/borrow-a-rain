@@ -1,5 +1,4 @@
 // 連接到本機的 TouchDesigner 伺服器（埠號可自訂，這裡用 9980）
-const socket = new WebSocket('ws://localhost:9980');
 const socket = new WebSocket('ws://127.0.0.1:9980');
 
 // 在你的追蹤迴圈（Loop）中持續發送數據
