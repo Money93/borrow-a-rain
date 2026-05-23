@@ -1,5 +1,6 @@
 // 連接到本機的 TouchDesigner 伺服器（埠號可自訂，這裡用 9980）
 const socket = new WebSocket('ws://localhost:9980');
+const socket = new WebSocket('ws://127.0.0.1:9980');
 
 // 在你的追蹤迴圈（Loop）中持續發送數據
 function onTrackingUpdate(trackedX, trackedY) {
@@ -187,6 +188,10 @@ function draw() {
         map(smoothY, 0, video.height, 20, 260),
         15
     );
+    // ===== 將即時座標正規化 (0~1) 並發送給 TouchDesigner =====
+    let tx = smoothX / video.width;   // 將 0 ~ 640 轉為 0 ~ 1
+    let ty = smoothY / video.height;  // 將 0 ~ 480 轉為 0 ~ 1
+    onTrackingUpdate(tx, ty);         // 正式啟動發送！
 }
 
 function windowResized() {
