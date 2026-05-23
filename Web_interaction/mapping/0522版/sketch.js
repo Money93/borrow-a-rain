@@ -1,3 +1,14 @@
+// 連接到本機的 TouchDesigner 伺服器（埠號可自訂，這裡用 9980）
+const socket = new WebSocket('ws://localhost:9980');
+
+// 在你的追蹤迴圈（Loop）中持續發送數據
+function onTrackingUpdate(trackedX, trackedY) {
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ x: trackedX, y: trackedY }));
+    }
+}
+
+
 let video;
 
 let points = [];
