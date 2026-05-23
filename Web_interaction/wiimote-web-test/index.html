@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>借過一把傘 - 搖桿 API 測試</title>
+    <title>借過一把傘 - 搖桿網頁切換</title>
     <style>
         body {
             margin: 0;
@@ -21,58 +21,106 @@
         h1 { font-size: 4rem; margin-bottom: 10px; }
         p { font-size: 1.5rem; opacity: 0.8; }
         #debug { position: absolute; bottom: 20px; font-family: monospace; color: #ccc; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
+        
+        /* 倒數計時進度條（給使用者的視覺提示） */
+        #loadingBar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 5px;
+            background-color: #e74c3c;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
     </style>
 </head>
 <body>
 
-    <h1 id="sceneText">請按一下 Wiimote 按鈕連線</h1>
-    <p id="subText">然後開始轉動測試</p>
+    <div id="loadingBar"></div>
+    <h1 id="sceneText">請按 Ⓐ 連線</h1>
+    <p id="subText">傾斜搖桿並停留 切換網頁</p>
     <div id="debug">等待手把連線...</div>
 
     <script>
         const sceneText = document.getElementById('sceneText');
         const subText = document.getElementById('subText');
         const debugInfo = document.getElementById('debug');
+        const loadingBar = document.getElementById('loadingBar');
 
-        // 持續偵測手把狀態的迴圈
+        // --- 網頁設定 ---
+        // 請把這裡的網址改成你實際想跳轉的網頁檔案路徑或 URL
+        const pages = {
+            1: "http://127.0.0.1:5500/Web_interaction/Rain_animation/index.html",  // 第一階段網頁
+            2: "http://127.0.0.1:5500/Web_interaction/Scene2/index.html",  // 第二階段網頁
+            3: "http://127.0.0.1:5500/Web_interaction/Scene3/index.html"   // 第三階段網頁
+        };
+
+        // --- 狀態追蹤變數（防止重複觸發跳轉） ---
+        let currentTargetZone = 0; // 目前手把指著的區域 (1, 2, or 3)
+        let zoneStartTime = 0;     // 進入該區域的時間點
+        const HOLD_DURATION = 1500; // 需要在該區間停留在多少毫秒（1500ms = 1.5秒）才會觸發跳轉
+
         function gameLoop() {
-            // 抓取目前連接的所有手把
             const gamepads = navigator.getGamepads();
             
             if (gamepads[0]) {
                 const gp = gamepads[0];
-                
-                // 讀取左搖桿的 X 軸 (索引值通常是 0，你可以根據測試網站的結果修改)
-                // 讀出來的數值會是 -1.0 到 1.0
                 let rawValue = gp.axes[0]; 
-                
-                // 將 -1.0 ~ 1.0 轉換成 0 ~ 360 度的角度
                 let angle = (rawValue + 1) * 180;
                 
-                debugInfo.innerText = `搖桿原始值: ${rawValue.toFixed(2)} | 轉換角度: ${Math.round(angle)}°`;
-
-                // 根據角度切換畫面
+                // 1. 判斷目前角度屬於哪一個區域
+                let detectedZone = 0;
                 if (angle >= 0 && angle <= 120) {
+                    detectedZone = 1;
                     document.body.style.backgroundColor = '#d35400'; 
-                    sceneText.innerText = '第一階段：初遇';
-                    subText.innerText = '浮現上一位使用者的「手寫字跡」留言';
+                    sceneText.innerText = '準備進入：初遇';
+                    subText.innerText = '請保持手把角度以確認切換...';
                 } 
                 else if (angle > 120 && angle <= 240) {
+                    detectedZone = 2;
                     document.body.style.backgroundColor = '#2980b9'; 
-                    sceneText.innerText = '第二階段：旅程';
-                    subText.innerText = '萬花筒般的地圖足跡與雨滴擴散紋理';
+                    sceneText.innerText = '準備進入：旅程';
+                    subText.innerText = '請保持手把角度以確認切換...';
                 } 
                 else {
+                    detectedZone = 3;
                     document.body.style.backgroundColor = '#27ae60'; 
-                    sceneText.innerText = '第三階段：尾聲';
-                    subText.innerText = '不同主人的記憶交疊...';
+                    sceneText.innerText = '準備進入：尾聲';
+                    subText.innerText = '請保持手把角度以確認切換...';
                 }
+
+                // 2. 核心邏輯：判斷區間停留時間
+                const currentTime = performance.now();
+
+                if (detectedZone !== currentTargetZone) {
+                    // 如果轉到了新區域，重新開始計算時間
+                    currentTargetZone = detectedZone;
+                    zoneStartTime = currentTime;
+                    loadingBar.style.width = '0%';
+                } else {
+                    // 如果還在同一個區域，計算停了多久
+                    let elapsedTime = currentTime - zoneStartTime;
+                    
+                    // 計算進度條比例
+                    let progress = Math.min((elapsedTime / HOLD_DURATION) * 100, 100);
+                    loadingBar.style.width = `${progress}%`;
+
+                    // 超過設定時間（1.5秒），執行跳轉
+                    if (elapsedTime >= HOLD_DURATION) {
+                        debugInfo.innerText = `正在跳轉至: ${pages[currentTargetZone]}`;
+                        
+                        // 執行跳轉（這裡使用了 window.location.assign）
+                        window.location.href = pages[currentTargetZone];
+                        return; // 結束 loop，準備換頁
+                    }
+                }
+
+                debugInfo.innerText = `搖桿原始值: ${rawValue.toFixed(2)} | 角度: ${Math.round(angle)}° | 區域: ${currentTargetZone}`;
             }
-            // 告訴瀏覽器在下一次重繪畫面前，再執行一次這個檢查
+            
             requestAnimationFrame(gameLoop);
         }
 
-        // 啟動偵測迴圈
         gameLoop();
     </script>
 </body>
