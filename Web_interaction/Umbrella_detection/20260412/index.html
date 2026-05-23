@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+
+<body style="margin:0;">
+
+    <button id="connectBtn" onclick="connect()">連接Arduino</button>
+
+    <script>
+        let port;
+        let reader;
+
+        async function connect() {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 9600 });
+
+            // ✅ 連接成功後隱藏按鈕
+            document.getElementById("connectBtn").style.display = "none";
+
+            const decoder = new TextDecoderStream();
+            port.readable.pipeTo(decoder.writable);
+            reader = decoder.readable.getReader();
+
+            readData();
+        }
+
+        async function readData() {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                if (value) {
+                    let data = value.trim();
+
+                    let lastState = null;
+
+                    if (data == "1" && lastState !== "1") {
+                        document.body.style.backgroundImage = "url('sky.jpg')";
+                        document.body.style.backgroundSize = "cover";
+                        document.body.style.backgroundColor = ""; // 清掉黑色
+                        lastState = "1";
+                    }
+                    else if (data == "0" && lastState !== "0") {
+                        document.body.style.backgroundImage = "none";
+                        document.body.style.backgroundColor = "black";
+                        lastState = "0";
+                    }
+                }
+            }
+        }
+    </script>
+
+</body>
+
+</html>
