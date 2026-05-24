@@ -61,6 +61,9 @@
     <div id="info-overlay">仰望透明雨傘，等待雨滴與留言落下...</div>
 
     <script>
+        // TouchDesigner websocket
+        const socket = new WebSocket('ws://localhost:9980');
+        
         // 雨傘 tracking
         let video;
 
