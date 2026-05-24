@@ -603,6 +603,20 @@
                     height
                 );
 
+                if (
+    socket.readyState === WebSocket.OPEN
+) {
+
+    socket.send(
+        JSON.stringify({
+
+            x: umbrellaX,
+            y: umbrellaY
+
+        })
+    );
+}
+
                 // debug（可刪）
 
                 console.log(
