@@ -56,10 +56,6 @@
       /* 確保所有子頁面背景完全一致 */
     }
 
-    .page.active {
-      display: flex;
-    }
-
     .page.show {
       opacity: 1;
       transform: translateY(0);
@@ -578,6 +574,186 @@
         opacity: 0;
       }
     }
+
+    /* =========================
+🧠 心理測驗頁
+========================= */
+    #quizPage {
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+      background: #f7f3ef;
+      min-height: 100vh;
+    }
+
+    #quizPage .result-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .quiz-card {
+      width: 100%;
+      max-width: 360px;
+      padding: 30px 22px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+
+      box-shadow:
+        0 20px 50px rgba(165, 150, 135, 0.12),
+        0 2px 8px rgba(0, 0, 0, 0.04);
+
+      border: 1px solid rgba(255, 255, 255, 0.7);
+
+      display: flex;
+      flex-direction: column;
+    }
+
+    .quiz-subtitle {
+      text-align: center;
+      color: #7b8790;
+      font-size: 14px;
+      margin-top: -4px;
+      margin-bottom: 26px;
+      font-family: 'Noto Sans TC', sans-serif;
+      line-height: 1.6;
+    }
+
+    /* 題目區塊 */
+    .quiz-question {
+      margin-bottom: 26px;
+    }
+
+    .quiz-question-title {
+      font-size: 16px;
+      margin-bottom: 14px;
+      color: #2f3e46;
+      line-height: 1.5;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-weight: 600;
+    }
+
+    /* 選項 */
+    .quiz-option {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(92, 124, 137, 0.06);
+      border: 1px solid rgba(92, 124, 137, 0.08);
+
+      margin-bottom: 10px;
+
+      transition: all 0.22s ease;
+
+      cursor: pointer;
+
+      font-family: 'Noto Sans TC', sans-serif;
+      color: #334155;
+    }
+
+    .quiz-option:hover {
+      transform: translateY(-2px);
+      background: rgba(92, 124, 137, 0.1);
+    }
+
+    .quiz-option.active {
+      background: rgba(92, 124, 137, 0.18);
+      border: 1px solid rgba(92, 124, 137, 0.25);
+
+      box-shadow:
+        0 6px 14px rgba(92, 124, 137, 0.12);
+    }
+
+    /* 測驗按鈕 */
+    .quiz-submit-btn {
+      margin-top: 10px;
+      padding: 15px;
+      border: none;
+      border-radius: 18px;
+
+      background: linear-gradient(135deg, #5c7c89, #3f5f6b);
+
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+
+      font-family: 'Noto Sans TC', sans-serif;
+
+      box-shadow:
+        0 10px 24px rgba(92, 124, 137, 0.2);
+
+      transition: all 0.2s ease;
+    }
+
+    .quiz-submit-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* 結果頁 */
+    #resultPage {
+      justify-content: center;
+      align-items: center;
+      padding: 30px 20px;
+    }
+
+    .result-wrap {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #resultImage {
+      width: 100%;
+      border-radius: 24px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    .save-tip {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #777;
+      font-family: "Noto Sans TC", sans-serif;
+    }
+
+
+    /* 按鈕區美化 */
+    .result-buttons {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .result-buttons button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 18px;
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      font-family: "Noto Sans TC", sans-serif;
+      background: linear-gradient(135deg, #5c7c89, #3f5f6b);
+      box-shadow: 0 8px 20px rgba(92, 124, 137, 0.18);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* 微光澤與點擊效果 */
+    .result-buttons button:active {
+      transform: scale(0.97);
+      box-shadow: 0 4px 10px rgba(92, 124, 137, 0.12);
+      filter: brightness(0.95);
+    }
   </style>
 </head>
 
@@ -654,7 +830,57 @@
         <p id="status"></p>
       </div>
     </div>
+    <!-- 🧠 心理測驗頁 -->
+    <div id="quizPage" class="page">
 
+      <div class="result-wrap">
+
+        <div class="quiz-card">
+
+          <div class="form-title">
+            雨中的你
+          </div>
+
+          <p class="quiz-subtitle">
+            回答幾個問題，看看這把傘讀懂了什麼
+          </p>
+
+          <div id="quizContainer"></div>
+
+          <button class="quiz-submit-btn" onclick="showResult()">
+            看看我的雨天人格
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 🌧 人格結果頁 -->
+    <div id="resultPage" class="page">
+
+      <div class="result-wrap">
+
+        <img id="resultImage" src="" alt="人格圖卡">
+
+        <p class="save-tip">
+          長按圖片即可儲存 ☔
+        </p>
+
+        <div class="result-buttons">
+          <button onclick="goPage('timeline')">
+            <i class="fa-solid fa-hourglass-half"></i> 查看時光膠囊
+          </button>
+
+          <button onclick="goPage('home')">
+  <i class="fa-solid fa-house"></i>
+            回到首頁
+          </button>
+        </div>
+
+      </div>
+    </div>
   </div>
 
   <script>
@@ -751,7 +977,66 @@
         document.getElementById("messages").innerText = "無法載入時光膠囊 ☁️";
       }
     }
+    /* =========================
+    🧠 心理測驗題目
+    ========================= */
 
+    const quizQuestions = [
+      {
+        question: "如果突然下雨，你通常會？",
+        options: [
+          { text: "躲起來不想見人", type: "storm" },
+          { text: "慢慢走，不急著離開", type: "drizzle" },
+          { text: "看著天空發呆", type: "cloudy" },
+          { text: "一下覺得浪漫一下覺得煩", type: "shower" },
+          { text: "覺得雨停後空氣很好", type: "sunny" }
+        ]
+      },
+
+      {
+        question: "你最常把情緒藏在哪裡？",
+        options: [
+          { text: "深夜", type: "storm" },
+          { text: "日常裡", type: "drizzle" },
+          { text: "沉默裡", type: "cloudy" },
+          { text: "忽冷忽熱的對話裡", type: "shower" },
+          { text: "笑容後面", type: "sunny" }
+        ]
+      },
+
+      {
+        question: "現在的你，比較像哪種天氣？",
+        options: [
+          { text: "暴雨", type: "storm" },
+          { text: "毛毛雨", type: "drizzle" },
+          { text: "陰天", type: "cloudy" },
+          { text: "陣雨後放晴", type: "shower" },
+          { text: "晴天", type: "sunny" }
+        ]
+      },
+
+      {
+        question: "你最害怕的是？",
+        options: [
+          { text: "情緒失控", type: "storm" },
+          { text: "沒有人懂", type: "drizzle" },
+          { text: "空蕩蕩的感覺", type: "cloudy" },
+          { text: "關係忽遠忽近", type: "shower" },
+          { text: "失去現在的平靜", type: "sunny" }
+        ]
+      },
+
+      {
+        question: "如果有人替你撐傘，你會？",
+        options: [
+          { text: "忍不住想哭", type: "storm" },
+          { text: "默默記在心裡", type: "drizzle" },
+          { text: "不知道怎麼回應", type: "cloudy" },
+          { text: "一下靠近一下逃開", type: "shower" },
+          { text: "也想替別人撐傘", type: "sunny" }
+        ]
+      }
+    ];
     /* ✉️ 送出故事 */
     async function submitData() {
       const mood = document.getElementById("mood").value;
@@ -778,12 +1063,112 @@
         document.getElementById("message").value = "";
         document.getElementById("instagram").value = "";
 
-        setTimeout(() => { goPage('home'); }, 1200);
+        setTimeout(() => {
+
+          loadQuiz();
+
+          goPage("quizPage");
+
+        }, 1200);
+
       } catch (e) {
         status.innerText = "好像斷線了，請再試一次 ☕";
       }
     }
+    let selectedAnswers = [];
 
+    /* 產生測驗 */
+    function loadQuiz() {
+
+      selectedAnswers = [];
+
+      const container = document.getElementById("quizContainer");
+
+      container.innerHTML = "";
+
+      quizQuestions.forEach((q, index) => {
+
+        const block = document.createElement("div");
+
+        block.className = "quiz-question";
+
+        block.innerHTML = `
+<div class="quiz-question-title">
+        ${index + 1}. ${q.question}
+      </div>
+    `;
+
+        q.options.forEach(option => {
+
+          const btn = document.createElement("div");
+
+          btn.className = "quiz-option";
+
+          btn.style.marginBottom = "8px";
+
+          btn.innerHTML = `
+        <div class="rain-name">${option.text}</div>
+      `;
+
+          btn.onclick = () => {
+
+            selectedAnswers[index] = option.type;
+
+            block.querySelectorAll(".rain-option").forEach(el => {
+              el.style.background = "rgba(92,124,137,0.06)";
+              el.style.border = "1px solid rgba(92,124,137,0.08)";
+            });
+
+            block.querySelectorAll(".quiz-option").forEach(el => {
+              el.classList.remove("active");
+            });
+
+            btn.classList.add("active");
+          };
+
+          block.appendChild(btn);
+        });
+
+        container.appendChild(block);
+      });
+    }
+    /* 顯示測驗結果 */
+    function showResult() {
+
+      if (selectedAnswers.length < quizQuestions.length) {
+        alert("還有問題沒回答 ☔");
+        return;
+      }
+
+      const count = {
+        storm: 0,
+        drizzle: 0,
+        cloudy: 0,
+        shower: 0,
+        sunny: 0
+      };
+
+      selectedAnswers.forEach(type => {
+        count[type]++;
+      });
+
+      const resultType = Object.keys(count).reduce((a, b) =>
+        count[a] > count[b] ? a : b
+      );
+
+      const imageMap = {
+        storm: "./storm.JPG",
+        drizzle: "./drizzle.JPG",
+        cloudy: "./cloudy.JPG",
+        shower: "./shower.JPG",
+        sunny: "./sunny.JPG"
+      };
+
+      document.getElementById("resultImage").src =
+        imageMap[resultType];
+
+      goPage("resultPage");
+    }
     /* 初始化背景雨滴 (開場頁用) */
     function createRain() {
       const rain = document.querySelector(".rain");
