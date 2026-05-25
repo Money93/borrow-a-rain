@@ -874,7 +874,7 @@
           </button>
 
           <button onclick="goPage('home')">
-  <i class="fa-solid fa-house"></i>
+            <i class="fa-solid fa-house"></i>
             回到首頁
           </button>
         </div>
@@ -985,55 +985,55 @@
       {
         question: "如果突然下雨，你通常會？",
         options: [
-          { text: "躲起來不想見人", type: "storm" },
-          { text: "慢慢走，不急著離開", type: "drizzle" },
-          { text: "看著天空發呆", type: "cloudy" },
-          { text: "一下覺得浪漫一下覺得煩", type: "shower" },
-          { text: "覺得雨停後空氣很好", type: "sunny" }
+          { text: "找地方躲起來等雨停", type: "cloudy", weight: 2 },
+          { text: "慢慢走，享受雨聲", type: "drizzle", weight: 3 },
+          { text: "撐著傘快速離開", type: "storm", weight: 1 },
+          { text: "覺得有點浪漫", type: "shower", weight: 2 },
+          { text: "反而更開心空氣變好", type: "sunny", weight: 3 }
         ]
       },
 
       {
         question: "你最常把情緒藏在哪裡？",
         options: [
-          { text: "深夜", type: "storm" },
-          { text: "日常裡", type: "drizzle" },
-          { text: "沉默裡", type: "cloudy" },
-          { text: "忽冷忽熱的對話裡", type: "shower" },
-          { text: "笑容後面", type: "sunny" }
+          { text: "爆發前的沉默", type: "storm", weight: 3 },
+          { text: "日常的小細節", type: "drizzle", weight: 2 },
+          { text: "不被注意的角落", type: "cloudy", weight: 3 },
+          { text: "忽冷忽熱的互動", type: "shower", weight: 2 },
+          { text: "看起來很正常的笑容", type: "sunny", weight: 1 }
         ]
       },
 
       {
         question: "現在的你，比較像哪種天氣？",
         options: [
-          { text: "暴雨", type: "storm" },
-          { text: "毛毛雨", type: "drizzle" },
-          { text: "陰天", type: "cloudy" },
-          { text: "陣雨後放晴", type: "shower" },
-          { text: "晴天", type: "sunny" }
+          { text: "暴雨（很滿、很亂）", type: "storm", weight: 3 },
+          { text: "毛毛雨（穩定但持續）", type: "drizzle", weight: 3 },
+          { text: "陰天（不明確）", type: "cloudy", weight: 3 },
+          { text: "陣雨（情緒波動）", type: "shower", weight: 3 },
+          { text: "晴天（穩定舒服）", type: "sunny", weight: 3 }
         ]
       },
 
       {
         question: "你最害怕的是？",
         options: [
-          { text: "情緒失控", type: "storm" },
-          { text: "沒有人懂", type: "drizzle" },
-          { text: "空蕩蕩的感覺", type: "cloudy" },
-          { text: "關係忽遠忽近", type: "shower" },
-          { text: "失去現在的平靜", type: "sunny" }
+          { text: "情緒失控", type: "storm", weight: 3 },
+          { text: "沒有人真正懂你", type: "drizzle", weight: 3 },
+          { text: "長時間的空白感", type: "cloudy", weight: 3 },
+          { text: "關係忽遠忽近", type: "shower", weight: 3 },
+          { text: "失去現在的平靜", type: "sunny", weight: 2 }
         ]
       },
 
       {
         question: "如果有人替你撐傘，你會？",
         options: [
-          { text: "忍不住想哭", type: "storm" },
-          { text: "默默記在心裡", type: "drizzle" },
-          { text: "不知道怎麼回應", type: "cloudy" },
-          { text: "一下靠近一下逃開", type: "shower" },
-          { text: "也想替別人撐傘", type: "sunny" }
+          { text: "忍不住想哭", type: "storm", weight: 2 },
+          { text: "默默記在心裡", type: "drizzle", weight: 3 },
+          { text: "不知道怎麼回應", type: "cloudy", weight: 2 },
+          { text: "一下靠近一下退開", type: "shower", weight: 3 },
+          { text: "也想成為撐傘的人", type: "sunny", weight: 3 }
         ]
       }
     ];
@@ -1140,7 +1140,7 @@
         return;
       }
 
-      const count = {
+      const score = {
         storm: 0,
         drizzle: 0,
         cloudy: 0,
@@ -1148,12 +1148,18 @@
         sunny: 0
       };
 
-      selectedAnswers.forEach(type => {
-        count[type]++;
+      selectedAnswers.forEach((type, index) => {
+        const q = quizQuestions[index];
+
+        const selectedOption = q.options.find(o => o.type === type);
+
+        if (selectedOption) {
+          score[type] += selectedOption.weight || 1;
+        }
       });
 
-      const resultType = Object.keys(count).reduce((a, b) =>
-        count[a] > count[b] ? a : b
+      const resultType = Object.keys(score).reduce((a, b) =>
+        score[a] > score[b] ? a : b
       );
 
       const imageMap = {
