@@ -23,6 +23,31 @@
       src: url('./AaJinRiHuaQing-ChunLanMaoKun.ttf') format('truetype');
     }
 
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #intro {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+    }
+
+    body.intro-mode {
+      background: #0b1b2b;
+    }
+
+    html.intro-mode,
+    body.intro-mode {
+      background: #0b1b2b;
+      overflow: hidden;
+    }
+
     /* 確保全域背景完全一致，消除手機邊緣與中間的色差 */
     body {
       margin: 0;
@@ -754,25 +779,37 @@
       box-shadow: 0 4px 10px rgba(92, 124, 137, 0.12);
       filter: brightness(0.95);
     }
+
+
+    .quiz-mini {
+      margin-top: 18px;
+      font-size: 15px;
+      color: #6b7a82;
+      opacity: 0.8;
+      cursor: pointer;
+    }
+
+    .quiz-mini:active {
+      transform: scale(0.98);
+    }
   </style>
 </head>
 
 <body>
 
-  <div class="container">
-    <!-- 🌧️ 開場頁 -->
-    <div id="intro">
-      <div class="intro-wrap">
-        <div class="intro-text">
-          <h2>今天雨很大</h2>
-          <p>這把傘借你</p>
-          <p class="small">但作為交換，請留下一個故事</p>
-        </div>
-        <button class="intro-btn" onclick="enterApp()">撐開這把傘</button>
-        <div class="rain"></div>
+  <!-- 🌧️ 開場頁 -->
+  <div id="intro">
+    <div class="intro-wrap">
+      <div class="intro-text">
+        <h2>今天雨很大</h2>
+        <p>這把傘借你</p>
+        <p class="small">但作為交換，請留下一個故事</p>
       </div>
+      <button class="intro-btn" onclick="enterApp()">撐開這把傘</button>
+      <div class="rain"></div>
     </div>
-
+  </div>
+  <div class="container">
     <!-- 🌙 首頁 (升級美化版) -->
     <div id="home" class="page">
       <div class="floating-rain"></div>
@@ -796,6 +833,9 @@
         <button onclick="goPage('form')">
           <i class="fa-solid fa-pen-nib"></i> 留下你的故事
         </button>
+      </div>
+      <div class="quiz-mini" onclick="goPage('quizPage')">
+        雨天人格測驗（點我玩）
       </div>
     </div>
 
@@ -877,6 +917,17 @@
             <i class="fa-solid fa-house"></i>
             回到首頁
           </button>
+          <button onclick="shareResultIG()">
+            <i class="fa-solid fa-share-nodes"></i> 分享到社群
+          </button>
+
+          <button onclick="downloadResult()">
+            <i class="fa-solid fa-download"></i> 下載圖片
+          </button>
+
+          <button onclick="copyCaption()">
+            <i class="fa-solid fa-clipboard"></i> 複製IG文案
+          </button>
         </div>
 
       </div>
@@ -909,6 +960,7 @@
 
       if (pageId === "home") loadJourney();
       if (pageId === "timeline") loadMessages();
+      if (pageId === "quizPage") loadQuiz();
     }
 
     function enterApp() {
@@ -1174,6 +1226,70 @@
         imageMap[resultType];
 
       goPage("resultPage");
+    }
+    /*分享社群*/
+    async function shareResultIG() {
+      const img = document.getElementById("resultImage");
+
+      try {
+        const res = await fetch(img.src);
+        const blob = await res.blob();
+        const file = new File([blob], "rain-result.jpg", { type: "image/jpeg" });
+
+        const caption = `我在《漂流傘》測出的雨天人格 ☔\n\n你也來試試看你的天氣是哪一種？`;
+
+        // 原生分享（手機最強）
+        if (navigator.share && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: "雨天人格測驗",
+            text: caption,
+            files: [file]
+          });
+        } else {
+          // fallback：無法分享圖片就複製文案
+          await navigator.clipboard.writeText(caption);
+          alert("你的裝置不支援圖片分享，已幫你複製文案！");
+        }
+
+      } catch (err) {
+        console.log(err);
+        alert("分享失敗，請改用下載方式 ☔");
+      }
+    }
+    function downloadResult() {
+      const img = document.getElementById("resultImage");
+
+      const a = document.createElement("a");
+      a.href = img.src;
+      a.download = `漂流傘_雨天人格.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    function copyCaption() {
+      const img = document.getElementById("resultImage");
+
+      const captions = {
+        storm: "我像暴雨一樣的情緒，你接得住嗎？☔",
+        drizzle: "我是一場慢慢下的雨，不吵，但一直在。🌧️",
+        cloudy: "我有點陰天，但還在努力變亮。☁️",
+        shower: "忽晴忽雨，是我最真實的樣子。🌦️",
+        sunny: "我看起來很晴天，但也曾下過雨。☀️"
+      };
+
+      // 從圖片路徑抓類型
+      const src = img.src;
+      const type = Object.keys(captions).find(t => src.includes(t));
+
+      const text =
+        `《漂流傘 ☔》
+${captions[type] || "我正在雨裡整理自己"}
+
+#漂流傘 #雨天人格 #心理測驗 #情緒天氣`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        alert("IG文案已複製！");
+      });
     }
     /* 初始化背景雨滴 (開場頁用) */
     function createRain() {
