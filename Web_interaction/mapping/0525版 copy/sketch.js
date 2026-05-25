@@ -11,7 +11,18 @@ let video;
 let points = [];
 let smoothX = 0;
 let smoothY = 0;
+let umbrellaAngle = 0;
+let currentScene = 1;
+let lastScene = 0;
 let frame;
+
+let currentPage = 1;
+
+const pages = {
+    1: "http://127.0.0.1:5500/Web_interaction/Rain_animation/page1.html",
+    2: "http://127.0.0.1:5500/Web_interaction/Rain_animation/page2.html",
+    3: "http://127.0.0.1:5500/Web_interaction/Rain_animation/page3.html"
+};
 
 // === Web Serial 相關變數 ===
 let port;
@@ -52,8 +63,8 @@ function setup() {
 async function connectSerial() {
     try {
         // 觸發音訊環境 (AudioContext)，確保點擊按鈕後音樂功能啟用
-        userStartAudio(); 
-        
+        userStartAudio();
+
         port = await navigator.serial.requestPort();
         await port.open({ baudRate: 9600 });
         connectBtn.html('Arduino 已連接');
@@ -84,7 +95,7 @@ async function readLoop() {
         if (value) {
             buffer += value;
             let lines = buffer.split('\r\n');
-            buffer = lines.pop(); 
+            buffer = lines.pop();
 
             if (lines.length > 0) {
                 let cleanData = lines[lines.length - 1].trim();
@@ -113,29 +124,29 @@ function gotDevices(deviceInfos) {
 }
 
 function draw() {
-    background(0); 
+    background(0);
 
     // ===== 偵測 Arduino 狀態改變，切換畫面與聲音 =====
     if (latestData !== lastData) {
         if (latestData === "1") {
             // 1 的時候：畫面全黑，播雨聲
-            frame.style('display', 'none');   
-            
+            frame.style('display', 'none');
+
             guitarSound.stop(); // 停止吉他聲
             if (!rainSound.isPlaying()) {
                 rainSound.play(); // 播放雨聲
             }
         } else {
             // 0 的時候：有畫面，播吉他聲
-            frame.style('display', 'block');  
-            
+            frame.style('display', 'block');
+
             rainSound.stop(); // 停止雨聲
             if (!guitarSound.isPlaying()) {
                 guitarSound.play(); // 播放吉他聲
             }
         }
         // 更新狀態，避免在 draw() 迴圈中重複執行
-        lastData = latestData; 
+        lastData = latestData;
     }
 
     video.loadPixels();
@@ -150,28 +161,167 @@ function draw() {
             let b = video.pixels[index + 2];
 
             if (g > 90 && g > r + 20 && g > b + 20) {
-                points.push({ x: x, y: y });
+                points.push({
+                    x: x,
+                    y: y,
+                    brightness: g
+                });
             }
         }
     }
 
-    // ===== 算中心 =====
-    if (points.length > 0) {
-        let sumX = 0;
-        let sumY = 0;
+    // ===== 找兩個綠點 =====
+
+    if (points.length > 10) {
+
+        // 按照亮度排序
+
+        points.sort(
+            (a, b) =>
+                b.brightness - a.brightness
+        );
+
+        // 最亮點
+
+        let p1 = points[0];
+
+        // 找離 p1 最遠的點
+
+        let p2 = p1;
+
+        let maxDist = 0;
+
         for (let p of points) {
-            sumX += p.x;
-            sumY += p.y;
+
+            let d = dist(
+                p1.x,
+                p1.y,
+                p.x,
+                p.y
+            );
+
+            if (d > maxDist) {
+
+                maxDist = d;
+                p2 = p;
+            }
         }
 
-        let targetX = sumX / points.length;
-        let targetY = sumY / points.length;
-        let distance = dist(smoothX, smoothY, targetX, targetY);
+        // 中心
 
-        if (distance > 3) {
-            smoothX = lerp(smoothX, targetX, 0.1);
-            smoothY = lerp(smoothY, targetY, 0.1);
+        let targetX =
+            (p1.x + p2.x) / 2;
+
+        let targetY =
+            (p1.y + p2.y) / 2;
+
+        smoothX = lerp(
+            smoothX,
+            targetX,
+            0.1
+        );
+
+        smoothY = lerp(
+            smoothY,
+            targetY,
+            0.1
+        );
+
+        // ===== 算旋轉角度 =====
+
+        umbrellaAngle = degrees(
+
+            atan2(
+                p2.y - p1.y,
+                p2.x - p1.x
+            )
+
+        );
+
+        // 轉成 0~360
+
+        if (umbrellaAngle < 0) {
+
+            umbrellaAngle += 360;
         }
+
+        // ===== 三個場景 =====
+
+        if (
+            umbrellaAngle >= 0 &&
+            umbrellaAngle < 120
+        ) {
+
+            currentScene = 1;
+        }
+
+        else if (
+            umbrellaAngle >= 120 &&
+            umbrellaAngle < 240
+        ) {
+
+            currentScene = 2;
+        }
+
+        else {
+
+            currentScene = 3;
+        }
+
+        // ===== HTML 場景切換 =====
+
+        if (currentScene != lastScene) {
+
+            frame.attribute(
+                'src',
+                pages[currentScene]
+            );
+
+            console.log(
+                "切換到場景:",
+                currentScene
+            );
+
+            lastScene = currentScene;
+        }
+
+        // ===== Debug =====
+
+        fill(255, 0, 0);
+
+        circle(
+            map(p1.x, 0, video.width, 20, 340),
+            map(p1.y, 0, video.height, 20, 260),
+            12
+        );
+
+        fill(0, 0, 255);
+
+        circle(
+            map(p2.x, 0, video.width, 20, 340),
+            map(p2.y, 0, video.height, 20, 260),
+            12
+        );
+
+        fill(255);
+
+        textSize(24);
+
+        text(
+            "Angle: " +
+            nf(umbrellaAngle, 1, 1),
+
+            20,
+            300
+        );
+
+        text(
+            "Scene: " +
+            currentScene,
+
+            20,
+            340
+        );
     }
 
     // ===== 座標轉換 =====
@@ -208,5 +358,5 @@ function draw() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
-    if(connectBtn) connectBtn.position(20, height - 40);
+    if (connectBtn) connectBtn.position(20, height - 40);
 }
