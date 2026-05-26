@@ -19,82 +19,69 @@
         const ctx = canvas.getContext('2d');
         
         let width, height, centerX, centerY;
+        const BOX_SIZE = 600; 
+        
         let bubbles = [], fallingDrops = [], splashes = [];
         let frameCount = 0, state = 'START', rainIntensity = 0;
 
         class Bubble {
-            constructor(text, count, allBubbles) {
+            constructor(text, count, index, total) {
                 this.text = text;
                 this.radius = 40 + (count * 10);
-                this.setRandomPosition(allBubbles);
+                // 從中間上方掉落
+                this.x = centerX;
+                this.y = -this.radius * 2 - (index * 100); 
+                
+                this.targetY = centerY + (Math.random() * 200 - 100);
+                this.speedY = 2 + Math.random();
+                this.isFalling = true;
+
                 const angle = Math.random() * Math.PI * 2;
-                this.speed = 0.5; 
-                this.vx = Math.cos(angle) * this.speed;
-                this.vy = Math.sin(angle) * this.speed;
-                // 從 0 開始
+                this.vx = Math.cos(angle) * 0.5;
+                this.vy = Math.sin(angle) * 0.5;
                 this.opacity = 0; 
             }
 
-            setRandomPosition(allBubbles) {
-                let overlap = false;
-                let attempts = 0;
-                do {
-                    overlap = false;
-                    this.x = this.radius + Math.random() * (width - this.radius * 2);
-                    this.y = this.radius + Math.random() * (height - this.radius * 2);
-                    for (let other of allBubbles) {
-                        let dist = Math.hypot(this.x - other.x, this.y - other.y);
-                        if (dist < this.radius + other.radius + 10) { overlap = true; break; }
-                    }
-                    attempts++;
-                } while (overlap && attempts < 50);
-            }
-
             update(allBubbles) {
-                this.x += this.vx; 
-                this.y += this.vy;
-                
-                // 碰撞處理 (保持等速)
-                for (let other of allBubbles) {
-                    if (other === this) continue;
-                    let dx = other.x - this.x;
-                    let dy = other.y - this.y;
-                    let dist = Math.hypot(dx, dy);
-                    let minDist = this.radius + other.radius;
-                    if (dist < minDist) {
-                        let angle = Math.atan2(dy, dx);
-                        let move = (minDist - dist) / 2;
-                        this.x -= Math.cos(angle) * move;
-                        this.y -= Math.sin(angle) * move;
-                        
-                        let nx = dx / dist, ny = dy / dist;
-                        let tx = -ny, ty = nx;
-                        let dpTan1 = this.vx * tx + this.vy * ty;
-                        let dpTan2 = other.vx * tx + other.vy * ty;
-                        let dpNorm1 = this.vx * nx + this.vy * ny;
-                        let dpNorm2 = other.vx * nx + other.vy * ny;
-                        
-                        this.vx = tx * dpTan1 + nx * dpNorm2;
-                        this.vy = ty * dpTan1 + ny * dpNorm2;
-                        other.vx = tx * dpTan2 + nx * dpNorm1;
-                        other.vy = ty * dpTan2 + ny * dpNorm1;
+                if (this.isFalling) {
+                    this.y += this.speedY;
+                    if (this.y >= this.targetY) this.isFalling = false;
+                } else {
+                    this.x += this.vx; 
+                    this.y += this.vy;
+                    
+                    const minX = centerX - BOX_SIZE / 2 + this.radius;
+                    const maxX = centerX + BOX_SIZE / 2 - this.radius;
+                    const minY = centerY - BOX_SIZE / 2 + this.radius;
+                    const maxY = centerY + BOX_SIZE / 2 - this.radius;
+
+                    for (let other of allBubbles) {
+                        if (other === this || other.isFalling) continue;
+                        let dx = other.x - this.x;
+                        let dy = other.y - this.y;
+                        let dist = Math.hypot(dx, dy);
+                        let minDist = this.radius + other.radius;
+                        if (dist < minDist) {
+                            let angle = Math.atan2(dy, dx);
+                            let move = (minDist - dist) / 2;
+                            this.x -= Math.cos(angle) * move;
+                            this.y -= Math.sin(angle) * move;
+                            this.vx *= -1; this.vy *= -1;
+                        }
                     }
+                    if (this.x - this.radius < minX || this.x + this.radius > maxX) this.vx *= -1;
+                    if (this.y - this.radius < minY || this.y + this.radius > maxY) this.vy *= -1;
                 }
-                if (this.x - this.radius < 0 || this.x + this.radius > width) this.vx *= -1;
-                if (this.y - this.radius < 0 || this.y + this.radius > height) this.vy *= -1;
-                
-                // 讓過渡更緩慢：將透明度增加幅度調小 (0.005)
-                if (this.opacity < 1) this.opacity += 0.005;
+                if (this.opacity < 1) this.opacity += 0.01;
             }
             
             draw() {
                 ctx.globalAlpha = this.opacity;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 * this.opacity})`;
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
                 ctx.stroke();
-                ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * this.opacity})`;
+                ctx.fillStyle = `rgba(255, 255, 255, 0.9)`;
                 ctx.font = '500 16px sans-serif';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(this.text, this.x, this.y);
@@ -102,6 +89,7 @@
             }
         }
 
+        // ... (FallingDrop, Splash 類別保持不變)
         class FallingDrop {
             constructor(targetX, targetY, isBig = false, isBg = false) {
                 this.targetX = targetX; this.targetY = targetY;
@@ -154,7 +142,12 @@
                 const data = await res.json();
                 const stats = {};
                 data.forEach(i => { if (i.mood) stats[i.mood] = (stats[i.mood] || 0) + 1; });
-                Object.keys(stats).forEach(m => bubbles.push(new Bubble(m, stats[m], bubbles)));
+                
+                // 根據數量排序：最多人的排在前面
+                const sortedMoods = Object.keys(stats).sort((a, b) => stats[b] - stats[a]);
+                sortedMoods.forEach((m, idx) => {
+                    bubbles.push(new Bubble(m, stats[m], idx, sortedMoods.length));
+                });
             } catch (e) { console.error("資料載入失敗"); }
         }
 
@@ -166,7 +159,7 @@
             bubbles.forEach(b => { b.update(bubbles); b.draw(); });
 
             frameCount++;
-            if (state === 'START' && frameCount === 30) fallingDrops.push(new FallingDrop(centerX, centerY, true, false));
+            if (state === 'START' && frameCount === 100) fallingDrops.push(new FallingDrop(centerX, centerY, true, false));
             else if (state === 'RAINING') {
                 if (rainIntensity < 0.2) rainIntensity += 0.001;
                 if (Math.random() < rainIntensity) fallingDrops.push(new FallingDrop(Math.random() * width, Math.random() * height, false, true));
