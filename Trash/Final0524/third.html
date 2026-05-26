@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雨景中的故事 - 加粗發光過場版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #020617; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        
+        #text-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none; 
+            z-index: 10;
+        }
+
+        /* 加粗並添加微微的白色發光 */
+        .glowing-text {
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+            /* 加入淡入動畫，耗時 2 秒 */
+            animation: fadeIn 2s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 0.9; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="relative">
+    <canvas id="rainCanvas"></canvas>
+
+    <div id="text-overlay">
+        <h1 class="text-white text-3xl md:text-5xl font-sans tracking-widest select-none glowing-text">
+            留下一個故事吧
+        </h1>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('rainCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height, centerX, centerY;
+        let fallingDrops = [];
+        let splashes = [];
+        let frameCount = 0;
+        let state = 'START';
+        let rainIntensity = 0;
+
+        class FallingDrop {
+            constructor(targetX, targetY, isBig = false, isBg = false) {
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.isBig = isBig;
+                this.isBg = isBg;
+                this.z = 0;
+                this.speed = isBig ? 0.04 : (isBg ? (Math.random() * 0.02 + 0.02) : (Math.random() * 0.01 + 0.02));
+            }
+
+            update() {
+                this.z += this.speed;
+                return this.z >= 1;
+            }
+
+            draw(ctx) {
+                const currentX = centerX + (this.targetX - centerX) * this.z;
+                const currentY = centerY + (this.targetY - centerY) * this.z;
+                const tailZ = Math.max(0, this.z - 0.25);
+                const tailX = centerX + (this.targetX - centerX) * tailZ;
+                const tailY = centerY + (this.targetY - centerY) * tailZ;
+
+                ctx.beginPath();
+                ctx.moveTo(currentX, currentY);
+                ctx.lineTo(tailX, tailY);
+                let grad = ctx.createLinearGradient(currentX, currentY, tailX, tailY);
+                grad.addColorStop(0, `rgba(255, 255, 255, ${this.z})`);
+                grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = this.isBig ? 4 * this.z : (this.isBg ? 1 * this.z : 1.5 * this.z);
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+        }
+
+        class Splash {
+            constructor(x, y, isBig) {
+                this.x = x; this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * (isBig ? 3 : 1.5);
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = 1.0;
+                this.decay = Math.random() * 0.03 + 0.02;
+                this.size = Math.random() * 1.5 + 0.5;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.vx *= 0.9; this.vy *= 0.9;
+                this.life -= this.decay;
+            }
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.fillStyle = `rgba(200, 230, 255, ${this.life * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            centerX = width / 2;
+            centerY = height / 2;
+        }
+
+        function animate() {
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(width, height));
+            gradient.addColorStop(0, '#162436');
+            gradient.addColorStop(1, '#020617');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            frameCount++;
+            if (state === 'START') {
+                if (frameCount === 30) fallingDrops.push(new FallingDrop(centerX, centerY, true, false));
+            } else if (state === 'RAINING') {
+                if (rainIntensity < 0.2) rainIntensity += 0.001;
+                if (Math.random() < rainIntensity) fallingDrops.push(new FallingDrop(Math.random() * width, Math.random() * height, false, true));
+            }
+
+            for (let i = fallingDrops.length - 1; i >= 0; i--) {
+                const drop = fallingDrops[i];
+                if (drop.update()) {
+                    const splashCount = drop.isBig ? 8 : 2;
+                    for (let j = 0; j < splashCount; j++) splashes.push(new Splash(drop.targetX, drop.targetY, drop.isBig));
+                    fallingDrops.splice(i, 1);
+                    if (drop.isBig && state === 'START') state = 'RAINING';
+                } else drop.draw(ctx);
+            }
+
+            splashes.forEach((s, i) => { s.update(); s.draw(ctx); if (s.life <= 0) splashes.splice(i, 1); });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        animate();
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            fallingDrops.push(new FallingDrop(e.clientX - rect.left, e.clientY - rect.top, false, false));
+        });
+    </script>
+</body>
+</html>
