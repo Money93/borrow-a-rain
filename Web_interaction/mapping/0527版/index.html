@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+
+  <script src="sketch.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+
+    iframe {
+
+      position: absolute;
+
+      left: 50%;
+      top: 53%;
+
+      width: 1400px;
+      height: 1200px;
+
+      border: none;
+
+      pointer-events: none;
+
+      overflow: hidden;
+
+      transform: translate(-50%, -50%) scaleX(-1);
+
+      opacity: 1;
+
+      clip-path: polygon(50% 15%,
+          99% 50%,
+          75% 85%,
+          25% 85%,
+          1% 50%);
+
+      -webkit-clip-path: polygon(50% 15%,
+          99% 50%,
+          75% 85%,
+          25% 85%,
+          1% 50%);
+    }
+    .projectFrame {
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  width: 1400px;
+  height: 1200px;
+  border: none;
+  pointer-events: none;
+  overflow: hidden;
+  transform: translate(-50%, -50%) scaleX(-1);
+  transition: opacity 0.5s ease-in-out; /* 讓淡入淡出更平滑 */
+  opacity: 0;
+  
+  clip-path: polygon(50% 15%, 99% 50%, 75% 85%, 25% 85%, 1% 50%);
+  -webkit-clip-path: polygon(50% 15%, 99% 50%, 75% 85%, 25% 85%, 1% 50%);
+}
+
+/* 啟動中的行為 */
+.projectFrame.active {
+  opacity: 1;
+  pointer-events: auto; /* 如果需要點擊的話 */
+}
+  </style>
+
+</head>
+
+<body>
+
+  <body>
+  <iframe id="frameA" class="projectFrame active" src="scene1.html"></iframe>
+  <iframe id="frameB" class="projectFrame" src="" style="opacity: 0; pointer-events: none;"></iframe>
+</body>
+
+</body>
+
+</html>
