@@ -15,6 +15,8 @@ let umbrellaAngle = 0;
 let currentScene = 1;
 let lastScene = 1;
 let frame;
+let lastSwitchTime = 0;
+let switchCooldown = 1200;
 
 let currentPage = 1;
 
@@ -273,19 +275,16 @@ function draw() {
 
         // HTML 場景切換
 
-        if (currentScene != lastScene) {
-
-            frame.attribute(
-                'src',
-                pages[currentScene]
-            );
-
-            console.log(
-                "切換到場景:",
-                currentScene
-            );
-
+        if (
+            currentScene != lastScene &&
+            millis() - lastSwitchTime > switchCooldown
+        ) {
+        
+            switchScene(currentScene);
+        
             lastScene = currentScene;
+        
+            lastSwitchTime = millis();
         }
 
         // Debug
@@ -327,9 +326,6 @@ function draw() {
         );
     }
 
-    // iframe 永遠固定在畫面中央
-    frame.position(width / 2, height / 2);
-
     // Debug 畫面
     image(video, 20, 20, 320, 240);
     fill(0, 255, 0);
@@ -353,6 +349,25 @@ function draw() {
     let tx = smoothX / video.width;
     let ty = smoothY / video.height;
     onTrackingUpdate(tx, ty);
+}
+
+function switchScene(sceneNumber) {
+
+    // 先淡出
+    frame.style('opacity', '0');
+
+    setTimeout(() => {
+
+        // 換頁
+        frame.attribute(
+            'src',
+            pages[sceneNumber]
+        );
+
+        // 淡入
+        frame.style('opacity', '1');
+
+    }, 400);
 }
 
 function windowResized() {
