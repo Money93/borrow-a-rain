@@ -78,6 +78,9 @@
             }
         }
 
+        // 記得執行載入資料
+        loadMessagesFromSheet();
+
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
@@ -101,7 +104,7 @@
                 // z 軸代表距離，0 = 天空最高處 (消失點)，1 = 撞擊雨傘表面
                 this.z = 0;
                 // 下落速度 (大雨滴砸得稍微快一點，背景雨滴偏快)
-                this.speed = isBig ? 0.04 : (isBg ? (Math.random() * 0.03 + 0.03) : (Math.random() * 0.015 + 0.025));
+                this.speed = isBig ? 0.04 : (isBg ? (Math.random() * 0.03 + 0.03) : (Math.random() * 0.01 + 0.015));
             }
 
             update() {
@@ -198,7 +201,7 @@
                 this.rippleRadius = 0;
                 this.rippleSpeed = isBig ? 3.5 : (isBg ? 1.5 : 1.2);
                 this.maxRippleRadius = isBig ? Math.max(width, height) * 0.8 : (isBg ? (Math.random() * 20 + 10) : (Math.random() * 100 + 150));
-
+                
                 this.textScale = 0.4;
                 this.textOpacity = 0;
                 this.textYOffset = 0;
@@ -215,19 +218,13 @@
                 this.rippleRadius += this.rippleSpeed;
 
                 if (!this.isBig && !this.isBg && this.text) {
-                    if (this.life < 150) {
-                        this.textOpacity = (this.life / 150) * 0.9;
-                        this.textScale = 0.4 + (this.life / 150) * 0.6;
-                    }
-                    else if (this.life > this.maxLife - 200) {
+                    // 撞擊後字體稍微擴散並慢慢淡出
+                    if (this.life > this.maxLife - 200) {
                         let fadeLife = this.life - (this.maxLife - 200);
-                        this.textOpacity = 0.9 - (fadeLife / 200) * 0.9;
-                        this.textScale += 0.0005;
+                        this.textOpacity = 0.8 - (fadeLife / 200) * 0.8;
                         this.textYOffset -= 0.1;
                     }
-                    else {
-                        this.textScale += 0.0005;
-                    }
+                    this.textScale += 0.0003;
                 }
             }
 
@@ -235,30 +232,19 @@
                 let rOpacity = 1 - (this.rippleRadius / this.maxRippleRadius);
                 if (rOpacity > 0) {
                     ctx.beginPath();
-                    // 加入 Math.max 防止負數報錯
                     ctx.arc(this.x, this.y, Math.max(0, this.rippleRadius), 0, Math.PI * 2);
 
-                    // 背景小雨滴的漣漪非常透明
                     let baseOpacity = this.isBig ? 0.7 : (this.isBg ? 0.15 : 0.4);
                     ctx.strokeStyle = `rgba(160, 200, 255, ${rOpacity * baseOpacity})`;
                     ctx.lineWidth = this.isBig ? 2.5 : (this.isBg ? 1 : 1.5);
                     ctx.stroke();
 
-                    // 留言雨滴或大雨滴才有雙層漣漪效果
                     if (!this.isBg && this.rippleRadius > 20) {
                         ctx.beginPath();
                         ctx.arc(this.x, this.y, Math.max(0, this.rippleRadius - 20), 0, Math.PI * 2);
                         ctx.strokeStyle = `rgba(160, 200, 255, ${rOpacity * 0.2})`;
                         ctx.lineWidth = 1;
                         ctx.stroke();
-                    }
-
-                    // 微微水波反光
-                    if (!this.isBg && this.life < 20) {
-                        ctx.beginPath();
-                        ctx.arc(this.x, this.y, Math.max(0, this.rippleRadius * 0.5), 0, Math.PI * 2);
-                        ctx.fillStyle = `rgba(255, 255, 255, ${(20 - this.life) * 0.01})`;
-                        ctx.fill();
                     }
                 }
 
@@ -269,7 +255,7 @@
                     ctx.translate(this.x, this.y + this.textYOffset + floatY);
                     ctx.scale(this.textScale, this.textScale);
 
-                    ctx.font = '300 28px "Noto Sans TC", sans-serif';
+                    ctx.font = '300 24px "Noto Sans TC", sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
 
@@ -289,7 +275,6 @@
         // ----------------------------------------------------
         let hasNotifiedParent = false;
         function animate() {
-            // 背景：中心微亮的深淵漸層，製造穹頂空間感
             const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(width, height));
             gradient.addColorStop(0, '#162436');
             gradient.addColorStop(1, '#020617');
@@ -298,25 +283,21 @@
 
             frameCount++;
 
-            // 狀態控制：開場大漣漪 (製造第一滴從天而降的雨)
             if (state === 'START') {
                 if (frameCount === 30) {
-                    // 發射第一滴大雨，目標是畫面正中央
                     fallingDrops.push(new FallingDrop(centerX, centerY, null, true, false));
                 }
             }
-            // 狀態控制：開始下雨
             else if (state === 'RAINING') {
-                // 1. 常態環境背景雨 (無文字，純氣氛)
-                if (rainIntensity < 0.4) rainIntensity += 0.002; // 雨勢逐漸增強到穩定的量
+                if (rainIntensity < 0.4) rainIntensity += 0.002;
                 if (Math.random() < rainIntensity) {
                     const bgX = Math.random() * width;
                     const bgY = Math.random() * height;
                     fallingDrops.push(new FallingDrop(bgX, bgY, null, false, true));
                 }
 
-                // 2. 觸發帶有留言的特殊雨滴
-                if (frameCount >= nextRainFrame) {
+                // 觸發帶有留言的特殊雨滴
+                if (frameCount >= nextRainFrame && messagePool.length > 0) {
                     const marginX = width * 0.15;
                     const marginY = height * 0.15;
                     const dropX = marginX + Math.random() * (width - marginX * 2);
@@ -336,12 +317,10 @@
                 const hasHit = drop.update();
                 drop.draw(ctx);
 
-                // 如果雨滴撞擊到傘面 (z >= 1)
                 if (hasHit) {
                     dropEvents.push(new DropEvent(drop.targetX, drop.targetY, drop.text, drop.isBig, drop.isBg));
                     fallingDrops.splice(i, 1);
 
-                    // 開場的第一滴大雨撞擊後，進入持續下雨狀態
                     if (drop.isBig && state === 'START') {
                         state = 'RAINING';
                         nextRainFrame = frameCount + 120;
@@ -375,8 +354,6 @@
 
             requestAnimationFrame(animate);
         }
-
-
 
         window.onload = () => {
             if (width === 0 || height === 0) {

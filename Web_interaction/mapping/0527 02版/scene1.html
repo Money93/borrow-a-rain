@@ -78,7 +78,8 @@
                 console.error("讀取 Google Sheet 失敗", err);
             }
         }
-
+        // 記得執行載入資料
+        loadMessagesFromSheet();
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
