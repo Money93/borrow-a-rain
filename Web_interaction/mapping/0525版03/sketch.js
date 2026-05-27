@@ -18,6 +18,7 @@ let frame;
 let lastSwitchTime = 0;
 let switchCooldown = 1200;
 
+
 let currentPage = 1;
 
 const pages = {
