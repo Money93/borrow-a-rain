@@ -11,33 +11,43 @@
   <script src="sketch.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-    }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
 
-    iframe {
+  iframe {
 
-      position: absolute;
+    position: absolute;
+    left: 0;
+    top: 0;
 
-      width: 700px;
-      height: 500px;
+    width: 1200px;
+    height: 1200px;
 
-      border: none;
+    border: none;
 
-      pointer-events: none;
+    pointer-events: none;
 
-      transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scaleX(-1);
 
-      filter: blur(1px);
+    
 
-      /* 真正裁切成橢圓 */
-      clip-path: ellipse(45% 40% at 50% 50%);
+    /* 三角形扇形 */
+  clip-path: polygon(
+    50% 0%,
+    100% 100%,
+    0% 100%
+  );
 
-      -webkit-clip-path: ellipse(45% 40% at 50% 50%);
-    }
-  </style>
+  -webkit-clip-path: polygon(
+    50% 0%,
+    100% 100%,
+    0% 100%
+  );
+  }
+</style>
 
 </head>
 

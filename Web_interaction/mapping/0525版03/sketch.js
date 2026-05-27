@@ -327,12 +327,8 @@ function draw() {
         );
     }
 
-    // 座標轉換
-    let mappedX = map(smoothX, 0, video.width, 200, width - 200);
-    let mappedY = map(smoothY, 0, video.height, 100, height - 100);
-
-    // 移動網頁
-    frame.position(mappedX, mappedY);
+    // iframe 永遠固定在畫面中央
+    frame.position(width / 2, height / 2);
 
     // Debug 畫面
     image(video, 20, 20, 320, 240);
