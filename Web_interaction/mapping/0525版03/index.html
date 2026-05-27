@@ -11,43 +11,46 @@
   <script src="sketch.js"></script>
 
   <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: black;
-  }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
 
-  iframe {
+    iframe {
 
-    position: absolute;
-    left: 0;
-    top: 0;
+      position: absolute;
 
-    width: 1200px;
-    height: 1200px;
+      left: 50%;
+      top: 54%;
 
-    border: none;
+      width: 1400px;
+      height: 1200px;
 
-    pointer-events: none;
+      border: none;
 
-    transform: translate(-50%, -50%) scaleX(-1);
+      pointer-events: none;
 
-    
+      overflow: hidden;
 
-    /* 三角形扇形 */
-  clip-path: polygon(
-    50% 0%,
-    100% 100%,
-    0% 100%
-  );
+      transform: translate(-50%, -50%) scaleX(-1);
 
-  -webkit-clip-path: polygon(
-    50% 0%,
-    100% 100%,
-    0% 100%
-  );
-  }
-</style>
+      transition: opacity 0.4s ease;
+      opacity: 1;
+
+      clip-path: polygon(50% 3%,
+          99% 50%,
+          75% 92%,
+          25% 92%,
+          1% 50%);
+
+      -webkit-clip-path: polygon(50% 3%,
+          99% 50%,
+          75% 92%,
+          25% 92%,
+          1% 50%);
+    }
+  </style>
 
 </head>
 
