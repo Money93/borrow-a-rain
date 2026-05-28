@@ -182,6 +182,54 @@
             }
         }
 
+        function drawWrappedText(
+            ctx,
+            text,
+            x,
+            y,
+            maxWidth,
+            lineHeight
+        ) {
+
+            const chars = text.split('');
+            let line = '';
+            let lines = [];
+
+            for (let i = 0; i < chars.length; i++) {
+
+                const testLine = line + chars[i];
+                const metrics = ctx.measureText(testLine);
+
+                if (
+                    metrics.width > maxWidth &&
+                    line !== ''
+                ) {
+
+                    lines.push(line);
+                    line = chars[i];
+
+                } else {
+
+                    line = testLine;
+                }
+            }
+
+            lines.push(line);
+
+            // 垂直置中
+            const startY =
+                y - ((lines.length - 1) * lineHeight) / 2;
+
+            for (let i = 0; i < lines.length; i++) {
+
+                ctx.fillText(
+                    lines[i],
+                    x,
+                    startY + i * lineHeight
+                );
+            }
+        }
+
         // ----------------------------------------------------
         // 3. 傘面上的漣漪與留言
         // ----------------------------------------------------
@@ -271,7 +319,7 @@
                     ctx.translate(this.x, this.y + this.textYOffset + floatY);
                     ctx.scale(this.textScale, this.textScale);
 
-                    ctx.font = '300 28px "Noto Sans TC", sans-serif';
+                    ctx.font = '300 24px "Noto Sans TC", sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
 
@@ -279,8 +327,14 @@
                     ctx.shadowBlur = 12;
 
                     ctx.fillStyle = `rgba(240, 248, 255, ${this.textOpacity})`;
-                    ctx.fillText(this.text, 0, 0);
-
+                    drawWrappedText(
+                        ctx,
+                        this.text,
+                        0,
+                        0,
+                        300, // 最大寬度
+                        36   // 行距
+                    );
                     ctx.restore();
                 }
             }
