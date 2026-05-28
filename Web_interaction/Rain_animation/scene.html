@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #020617;
+            overflow: hidden;
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #info-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            z-index: 10;
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.9);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="rippleCanvas"></canvas>
+    <div id="info-overlay">仰望透明雨傘，等待雨滴與留言落下...</div>
+
+    <script>
+        const SHEET_API = "https://opensheet.elk.sh/1A5k99fbXf9kFppiZBPSUBy6l8TGGDudqwtB9DA5Suws/data";
+        const canvas = document.getElementById('rippleCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let centerX, centerY; // 畫面的透視消失點 (天空最高處)
+
+        // --- 新增：定義呈現的區域大小 ---
+        const BOX_SIZE = 600;
+
+        let fallingDrops = []; // 正在落下的雨滴 (空中的)
+        let dropEvents = [];   // 已經撞擊傘面的漣漪與文字
+        let splashes = [];     // 撞擊後濺起並沿著傘面滑落的水花
+
+        let frameCount = 0;
+        let state = 'START';
+        let nextRainFrame = 0;
+        let messageIndex = 0;
+        let rainIntensity = 0; // 用來控制背景雨勢逐漸變大的變數
+        let hasNotifiedParent = false;
+
+        let messagePool = [];
+        async function loadMessagesFromSheet() {
+            try {
+                const res = await fetch(SHEET_API);
+                const data = await res.json();
+
+                // 抓 message 欄位
+                messagePool = data
+                    .map(item => item.message)
+                    .filter(msg => msg && msg.trim() !== "");
+
+                console.log("載入留言：", messagePool);
+
+            } catch (err) {
+                console.error("讀取 Google Sheet 失敗", err);
+            }
+        }
+        // 記得執行載入資料
+        loadMessagesFromSheet();
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            centerX = width / 2;
+            centerY = height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // ----------------------------------------------------
+        // 1. 迎面落下的雨滴 (3D透視感)
+        // ----------------------------------------------------
+        class FallingDrop {
+            constructor(targetX, targetY, text, isBig = false, isBg = false) {
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.text = text;
+                this.isBig = isBig;
+                this.isBg = isBg; // 是否為背景常態雨滴
+
+                // z 軸代表距離，0 = 天空最高處 (消失點)，1 = 撞擊雨傘表面
+                this.z = 0;
+                // 下落速度 (大雨滴砸得稍微快一點，背景雨滴偏快)
+                this.speed = isBig ? 0.04 : (isBg ? (Math.random() * 0.03 + 0.03) : (Math.random() * 0.015 + 0.025));
+            }
+
+            update() {
+                this.z += this.speed;
+                return this.z >= 1; // 回傳 true 代表撞擊到傘面了
+            }
+
+            draw(ctx) {
+                // 利用透視公式計算當前畫面上的 X, Y 座標
+                const currentX = centerX + (this.targetX - centerX) * this.z;
+                const currentY = centerY + (this.targetY - centerY) * this.z;
+
+                // 計算雨絲的尾巴 (視覺暫留)，尾巴位於較遠的 z 軸位置
+                const tailZ = Math.max(0, this.z - 0.25);
+                const tailX = centerX + (this.targetX - centerX) * tailZ;
+                const tailY = centerY + (this.targetY - centerY) * tailZ;
+
+                // 畫雨絲的拖影
+                ctx.beginPath();
+                ctx.moveTo(currentX, currentY);
+                ctx.lineTo(tailX, tailY);
+
+                let grad = ctx.createLinearGradient(currentX, currentY, tailX, tailY);
+                grad.addColorStop(0, `rgba(255, 255, 255, ${this.z})`); // 靠近傘面的頭部較亮
+                grad.addColorStop(1, `rgba(255, 255, 255, 0)`);         // 尾巴透明
+
+                ctx.strokeStyle = grad;
+                // 背景雨滴的線條比較細
+                ctx.lineWidth = this.isBig ? 4 * this.z : (this.isBg ? 1.5 * this.z : 2 * this.z);
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+        }
+
+        // ----------------------------------------------------
+        // 2. 水花粒子 (沿著弧形傘面向外滑落)
+        // ----------------------------------------------------
+        class Splash {
+            constructor(x, y, isBig, isBg = false) {
+                this.x = x;
+                this.y = y;
+                // 撞擊瞬間的初始爆發力 (向四周散開)
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * (isBig ? 5 : (isBg ? 1.5 : 2.5));
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+
+                this.life = 1.0;
+                this.decay = isBg ? Math.random() * 0.05 + 0.05 : Math.random() * 0.02 + 0.015;
+                this.size = isBg ? Math.random() * 1 + 0.5 : Math.random() * 2 + 1;
+            }
+            update() {
+                // 模擬傘面的「穹頂重力」：水珠會順著傘的弧度，向外(遠離中心)加速滑落
+                let dx = this.x - centerX;
+                let dy = this.y - centerY;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > 0) {
+                    this.vx += (dx / dist) * 0.15;
+                    this.vy += (dy / dist) * 0.15;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                this.vx *= 0.92;
+                this.vy *= 0.92;
+                this.life -= this.decay;
+            }
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.fillStyle = `rgba(200, 230, 255, ${this.life})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, Math.max(0, this.size), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // ----------------------------------------------------
+        // 3. 傘面上的漣漪與留言
+        // ----------------------------------------------------
+        class DropEvent {
+            constructor(x, y, text, isBig = false, isBg = false) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.isBig = isBig;
+                this.isBg = isBg;
+
+                this.life = 0;
+                // 背景雨滴產生的漣漪生命週期極短
+                this.maxLife = isBig ? 300 : (isBg ? 25 : 700);
+
+                this.rippleRadius = 0;
+                this.rippleSpeed = isBig ? 3.5 : (isBg ? 1.5 : 1.2);
+
+                // --- 修改：限制最大漣漪範圍，使其不要擴散到框線外面太多 ---
+                this.maxRippleRadius = isBig ? BOX_SIZE * 0.8 : (isBg ? (Math.random() * 15 + 5) : (Math.random() * 60 + 80));
+
+                this.textScale = 0.4;
+                this.textOpacity = 0;
+                this.textYOffset = 0;
+
+                // 產生撞擊水花 (背景雨滴水花數量極少)
+                const splashCount = isBig ? 25 : (isBg ? Math.floor(Math.random() * 2) : Math.floor(Math.random() * 5) + 4);
+                for (let i = 0; i < splashCount; i++) {
+                    splashes.push(new Splash(x, y, isBig, isBg));
+                }
+            }
+
+            update() {
+                this.life++;
+                this.rippleRadius += this.rippleSpeed;
+
+                if (!this.isBig && !this.isBg && this.text) {
+                    if (this.life < 150) {
+                        this.textOpacity = (this.life / 150) * 0.9;
+                        this.textScale = 0.4 + (this.life / 150) * 0.6;
+                    }
+                    else if (this.life > this.maxLife - 200) {
+                        let fadeLife = this.life - (this.maxLife - 200);
+                        this.textOpacity = 0.9 - (fadeLife / 200) * 0.9;
+                        this.textScale += 0.0005;
+                        this.textYOffset -= 0.1;
+                    }
+                    else {
+                        this.textScale += 0.0005;
+                    }
+                }
+            }
+
+            draw(ctx) {
+                let rOpacity = 1 - (this.rippleRadius / this.maxRippleRadius);
+                if (rOpacity > 0) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, Math.max(0, this.rippleRadius), 0, Math.PI * 2);
+                    let baseOpacity = this.isBig ? 0.7 : (this.isBg ? 0.15 : 0.4);
+                    ctx.strokeStyle = `rgba(160, 200, 255, ${rOpacity * baseOpacity})`;
+                    ctx.lineWidth = this.isBig ? 2.5 : (this.isBg ? 1 : 1.5);
+                    ctx.stroke();
+
+                    if (!this.isBg && this.rippleRadius > 20) {
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, Math.max(0, this.rippleRadius - 20), 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(160, 200, 255, ${rOpacity * 0.2})`;
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+                }
+                // 修正文字部分：降低字體大小至 16px，並稍微調低最大放大倍率
+                if (!this.isBg && this.text && this.textOpacity > 0) {
+                    ctx.save();
+                    let floatY = Math.sin(this.life * 0.03) * 4;
+
+                    ctx.translate(this.x, this.y + this.textYOffset + floatY);
+                    // 讓字體從 0.5 放大到 1.0 即可
+                    let currentScale = 0.5 + (this.textScale - 0.4) * 0.5;
+                    ctx.scale(currentScale, currentScale);
+
+                    // 調整為 16px，確保長句子也能塞在 600x600 內
+                    ctx.font = '300 16px "Noto Sans TC", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    ctx.shadowColor = `rgba(255, 255, 255, ${this.textOpacity * 0.6})`;
+                    ctx.shadowBlur = 8;
+
+                    ctx.fillStyle = `rgba(240, 248, 255, ${this.textOpacity})`;
+                    ctx.fillText(this.text, 0, 0);
+
+                    ctx.restore();
+                }
+            }
+        }
+
+        // 2. 修正 animate() 裡面的 clip() 範圍，讓剪裁框比白框「稍微大一點點」（例如加個安全邊距 40px）
+        // 這樣漣漪與文字微幅擴散出去時，就不會硬生生地被切斷
+        function animate() {
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(width, height));
+            gradient.addColorStop(0, '#162436');
+            gradient.addColorStop(1, '#020617');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // 繪製 600x600 白框
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(centerX - BOX_SIZE / 2, centerY - BOX_SIZE / 2, BOX_SIZE, BOX_SIZE);
+            frameCount++;
+
+            // 狀態控制：開場大漣漪 (製造第一滴從天而降的雨)
+            if (state === 'START') {
+                if (frameCount === 30) {
+                    fallingDrops.push(new FallingDrop(centerX, centerY, null, true, false));
+                }
+            }
+            else if (state === 'RAINING') {
+                if (rainIntensity < 0.4) rainIntensity += 0.002;
+                if (Math.random() < rainIntensity) {
+                    const bgX = centerX - BOX_SIZE / 2 + Math.random() * BOX_SIZE;
+                    const bgY = centerY - BOX_SIZE / 2 + Math.random() * BOX_SIZE;
+                    fallingDrops.push(new FallingDrop(bgX, bgY, null, false, true));
+                }
+
+                if (frameCount >= nextRainFrame) {
+                    // 讓留言雨滴落點稍微再往內縮一點（padding 改 80），確保字體一定在中央
+                    const padding = 80;
+                    const dropX = centerX - BOX_SIZE / 2 + padding + Math.random() * (BOX_SIZE - padding * 2);
+                    const dropY = centerY - BOX_SIZE / 2 + padding + Math.random() * (BOX_SIZE - padding * 2);
+
+                    const text = messagePool[messageIndex];
+                    messageIndex = (messageIndex + 1) % messagePool.length;
+
+                    fallingDrops.push(new FallingDrop(dropX, dropY, text, false, false));
+                    nextRainFrame = frameCount + Math.floor(Math.random() * 160) + 160;
+                }
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            // 【重點修改】給剪裁遮罩（clip）左右各加 40px 的緩衝區（600 -> 680），文字就不會因為稍微飄移就看不見
+            const buffer = 40;
+            ctx.rect(centerX - BOX_SIZE / 2 - buffer, centerY - BOX_SIZE / 2 - buffer, BOX_SIZE + buffer * 2, BOX_SIZE + buffer * 2);
+            ctx.clip();
+
+
+
+            // 更新並繪製正在「逼近」的雨滴
+            for (let i = fallingDrops.length - 1; i >= 0; i--) {
+                const drop = fallingDrops[i];
+                const hasHit = drop.update();
+                drop.draw(ctx);
+
+                // 如果雨滴撞擊到傘面 (z >= 1)
+                if (hasHit) {
+                    dropEvents.push(new DropEvent(drop.targetX, drop.targetY, drop.text, drop.isBig, drop.isBg));
+                    fallingDrops.splice(i, 1);
+
+                    // 開場的第一滴大雨撞擊後，進入持續下雨狀態
+                    if (drop.isBig && state === 'START') {
+                        state = 'RAINING';
+                        nextRainFrame = frameCount + 120;
+                    }
+                }
+            }
+
+            // 更新並繪製傘面上的漣漪與文字
+            for (let i = dropEvents.length - 1; i >= 0; i--) {
+                const drop = dropEvents[i];
+                drop.update();
+                drop.draw(ctx);
+                if (drop.life >= drop.maxLife) {
+                    dropEvents.splice(i, 1);
+                }
+            }
+
+            // 更新並繪製濺起且滑落的水花
+            for (let i = splashes.length - 1; i >= 0; i--) {
+                const splash = splashes[i];
+                splash.update();
+                splash.draw(ctx);
+                if (splash.life <= 0) {
+                    splashes.splice(i, 1);
+                }
+            }
+
+            ctx.restore(); // 恢復剪裁狀態，避免影響其他不需被裁切的繪製元素
+
+            if (!hasNotifiedParent) {
+                window.parent.postMessage('canvas-ready', '*');
+                hasNotifiedParent = true;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+
+
+        window.onload = () => {
+            if (width === 0 || height === 0) {
+                requestAnimationFrame(window.onload);
+                return;
+            }
+            animate();
+        };
+
+        // 點擊互動：點擊傘面任何一處，從天空發射一滴對應的雨滴過來
+        canvas.addEventListener('click', (e) => {
+            if (state === 'RAINING') {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // --- 修改：只有點擊在 BOX 範圍內才會觸發點擊雨滴 ---
+                if (
+                    x >= centerX - BOX_SIZE / 2 &&
+                    x <= centerX + BOX_SIZE / 2 &&
+                    y >= centerY - BOX_SIZE / 2 &&
+                    y <= centerY + BOX_SIZE / 2
+                ) {
+                    const text = messagePool[messageIndex];
+                    messageIndex = (messageIndex + 1) % messagePool.length;
+
+                    fallingDrops.push(new FallingDrop(x, y, text, false, false));
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
