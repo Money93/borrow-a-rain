@@ -318,10 +318,20 @@
 
                 // 2. 觸發帶有留言的特殊雨滴
                 if (frameCount >= nextRainFrame) {
-                    const marginX = width * 0.15;
-                    const marginY = height * 0.15;
-                    const dropX = marginX + Math.random() * (width - marginX * 2);
-                    const dropY = marginY + Math.random() * (height - marginY * 2);
+                    // ===== 限制留言生成範圍 =====
+
+                    // 中間區域
+                    const minX = width * 0.28;
+                    const maxX = width * 0.72;
+
+                    const minY = height * 0.28;
+                    const maxY = height * 0.72;
+
+                    const dropX =
+                        minX + Math.random() * (maxX - minX);
+
+                    const dropY =
+                        minY + Math.random() * (maxY - minY);
 
                     const text = messagePool[messageIndex];
                     messageIndex = (messageIndex + 1) % messagePool.length;
