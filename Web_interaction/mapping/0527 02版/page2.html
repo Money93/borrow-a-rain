@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>second</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #020617; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const SHEET_API = "https://opensheet.elk.sh/1A5k99fbXf9kFppiZBPSUBy6l8TGGDudqwtB9DA5Suws/data";
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height, centerX, centerY;
+        const BOX_SIZE = 600; 
+        
+        let bubbles = [], fallingDrops = [], splashes = [];
+        let frameCount = 0, state = 'START', rainIntensity = 0;
+        let hasNotifiedParent = false;
+
+        class Bubble {
+            constructor(text, count, index, total) {
+                this.text = text;
+                this.radius = 40 + (count * 10);
+                // 從中間上方掉落
+                this.x = centerX;
+                this.y = -this.radius * 2 - (index * 100); 
+                
+                this.targetY = centerY + (Math.random() * 200 - 100);
+                this.speedY = 2 + Math.random();
+                this.isFalling = true;
+
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * 0.5;
+                this.vy = Math.sin(angle) * 0.5;
+                this.opacity = 0; 
+            }
+
+            update(allBubbles) {
+                if (this.isFalling) {
+                    this.y += this.speedY;
+                    if (this.y >= this.targetY) this.isFalling = false;
+                } else {
+                    this.x += this.vx; 
+                    this.y += this.vy;
+                    
+                    const minX = centerX - BOX_SIZE / 2 + this.radius;
+                    const maxX = centerX + BOX_SIZE / 2 - this.radius;
+                    const minY = centerY - BOX_SIZE / 2 + this.radius;
+                    const maxY = centerY + BOX_SIZE / 2 - this.radius;
+
+                    for (let other of allBubbles) {
+                        if (other === this || other.isFalling) continue;
+                        let dx = other.x - this.x;
+                        let dy = other.y - this.y;
+                        let dist = Math.hypot(dx, dy);
+                        let minDist = this.radius + other.radius;
+                        if (dist < minDist) {
+                            let angle = Math.atan2(dy, dx);
+                            let move = (minDist - dist) / 2;
+                            this.x -= Math.cos(angle) * move;
+                            this.y -= Math.sin(angle) * move;
+                            this.vx *= -1; this.vy *= -1;
+                        }
+                    }
+                    if (this.x - this.radius < minX || this.x + this.radius > maxX) this.vx *= -1;
+                    if (this.y - this.radius < minY || this.y + this.radius > maxY) this.vy *= -1;
+                }
+                if (this.opacity < 1) this.opacity += 0.01;
+            }
+            
+            draw() {
+                ctx.globalAlpha = this.opacity;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
+                ctx.stroke();
+                ctx.fillStyle = `rgba(255, 255, 255, 0.9)`;
+                ctx.font = '500 16px sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // ... (FallingDrop, Splash 類別保持不變)
+        class FallingDrop {
+            constructor(targetX, targetY, isBig = false, isBg = false) {
+                this.targetX = targetX; this.targetY = targetY;
+                this.isBig = isBig; this.isBg = isBg;
+                this.z = 0;
+                this.speed = isBig ? 0.04 : (isBg ? (Math.random() * 0.02 + 0.02) : (Math.random() * 0.01 + 0.02));
+            }
+            update() { this.z += this.speed; return this.z >= 1; }
+            draw(ctx) {
+                const curX = centerX + (this.targetX - centerX) * this.z;
+                const curY = centerY + (this.targetY - centerY) * this.z;
+                const tailX = centerX + (this.targetX - centerX) * Math.max(0, this.z - 0.25);
+                const tailY = centerY + (this.targetY - centerY) * Math.max(0, this.z - 0.25);
+                ctx.beginPath(); ctx.moveTo(curX, curY); ctx.lineTo(tailX, tailY);
+                let grad = ctx.createLinearGradient(curX, curY, tailX, tailY);
+                grad.addColorStop(0, `rgba(255,255,255,${this.z})`);
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = this.isBig ? 4 * this.z : 1.5 * this.z;
+                ctx.stroke();
+            }
+        }
+
+        class Splash {
+            constructor(x, y, isBig) {
+                this.x = x; this.y = y;
+                const ang = Math.random() * Math.PI * 2;
+                const spd = Math.random() * (isBig ? 3 : 1.5);
+                this.vx = Math.cos(ang) * spd; this.vy = Math.sin(ang) * spd;
+                this.life = 1.0; this.decay = Math.random() * 0.03 + 0.02;
+                this.size = Math.random() * 1.5 + 0.5;
+            }
+            update() { this.x += this.vx; this.y += this.vy; this.vx *= 0.9; this.vy *= 0.9; this.life -= this.decay; }
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.fillStyle = `rgba(200,230,255,${this.life * 0.5})`;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            centerX = width / 2; centerY = height / 2;
+        }
+
+        async function fetchBubbles() {
+            try {
+                const res = await fetch(SHEET_API);
+                const data = await res.json();
+                const stats = {};
+                data.forEach(i => { if (i.mood) stats[i.mood] = (stats[i.mood] || 0) + 1; });
+                
+                // 根據數量排序：最多人的排在前面
+                const sortedMoods = Object.keys(stats).sort((a, b) => stats[b] - stats[a]);
+                sortedMoods.forEach((m, idx) => {
+                    bubbles.push(new Bubble(m, stats[m], idx, sortedMoods.length));
+                });
+            } catch (e) { console.error("資料載入失敗"); }
+        }
+
+        function animate() {
+            const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(width, height));
+            grad.addColorStop(0, '#162436'); grad.addColorStop(1, '#020617');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, width, height);
+
+            bubbles.forEach(b => { b.update(bubbles); b.draw(); });
+
+            frameCount++;
+            if (state === 'START' && frameCount === 100) fallingDrops.push(new FallingDrop(centerX, centerY, true, false));
+            else if (state === 'RAINING') {
+                if (rainIntensity < 0.2) rainIntensity += 0.001;
+                if (Math.random() < rainIntensity) fallingDrops.push(new FallingDrop(Math.random() * width, Math.random() * height, false, true));
+            }
+
+            for (let i = fallingDrops.length - 1; i >= 0; i--) {
+                const d = fallingDrops[i];
+                if (d.update()) {
+                    for(let j=0; j<(d.isBig?8:2); j++) splashes.push(new Splash(d.targetX, d.targetY, d.isBig));
+                    fallingDrops.splice(i, 1);
+                    if (d.isBig && state === 'START') state = 'RAINING';
+                } else d.draw(ctx);
+            }
+            splashes.forEach((s, i) => { s.update(); s.draw(ctx); if (s.life <= 0) splashes.splice(i, 1); });
+            if (!hasNotifiedParent && bubbles.length > 0) { // 確保資料拿到且泡泡建立好開始畫了
+                window.parent.postMessage('canvas-ready', '*');
+                hasNotifiedParent = true;
+            }
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        fetchBubbles();
+        animate();
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            fallingDrops.push(new FallingDrop(e.clientX - rect.left, e.clientY - rect.top, false, false));
+        });
+    </script>
+</body>
+</html>
