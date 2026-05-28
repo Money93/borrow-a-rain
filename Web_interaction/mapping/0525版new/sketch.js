@@ -12,15 +12,13 @@ let points = [];
 let smoothX = 0;
 let smoothY = 0;
 let umbrellaAngle = 0;
+let smoothAngle = 0;
 let currentScene = 1;
-let lastScene = 1;
-let targetScene = 1;
-let sceneHoldStart = 0;
-let holdTime = 2000; // 停留2秒
+let lastScene = 0;
 let frame;
+let firstDetect = true;
+let detectTimer = 0;
 let lastSwitchTime = 0;
-let switchCooldown = 1200;
-
 
 let currentPage = 1;
 
@@ -51,6 +49,9 @@ function preload() {
 function setup() {
     createCanvas(windowWidth, windowHeight);
     frame = select('#projectFrame');
+
+    // 一開始固定顯示 scene1
+    frame.attribute('src', pages[1]);
 
     // 設定音樂循環播放（這樣聲音才不會放一下就沒了）
     rainSound.setLoop(true);
@@ -244,65 +245,67 @@ function draw() {
 
         );
 
+        // 角度平滑化
+        smoothAngle = lerp(
+            smoothAngle,
+            umbrellaAngle,
+            0.03
+        );
+
         // 轉成 0~360
 
-        if (umbrellaAngle < 0) {
+        if (smoothAngle < 0) {
 
-            umbrellaAngle += 360;
+            smoothAngle += 360;
         }
 
         // 三個場景
 
-        if (
-            umbrellaAngle >= 10 &&
-            umbrellaAngle < 110
-        ) {
-
+        if (smoothAngle >= 0 && smoothAngle < 120) {
             currentScene = 1;
         }
-
-        else if (
-            umbrellaAngle >= 130 &&
-            umbrellaAngle < 230
-        ) {
-
+        else if (smoothAngle >= 120 && smoothAngle < 240) {
             currentScene = 2;
         }
-
-        else if (
-            umbrellaAngle >= 250 &&
-            umbrellaAngle < 350
-        ) {
-
+        else {
             currentScene = 3;
         }
 
-        // ===== 停留2秒才切換場景 =====
+        // 第一次偵測固定顯示 scene1
 
-        // 如果目前偵測到的新場景改變了
-        if (currentScene != targetScene) {
+        if (firstDetect) {
 
-            // 更新目標場景
-            targetScene = currentScene;
+            currentScene = 1;
 
-            // 重新開始計時
-            sceneHoldStart = millis();
+            frame.attribute('src', pages[1]);
+
+            console.log("第一次偵測，固定 scene1");
+
+            lastScene = 1;
+
+            firstDetect = false;
+
+            detectTimer = millis();
         }
 
-        // 如果已經停留超過2秒
-        if (
-            targetScene != lastScene &&
-            millis() - sceneHoldStart > holdTime &&
-            millis() - lastSwitchTime > switchCooldown
-        ) {
+        // 後續正常切換
 
-            switchScene(targetScene);
+        else if (millis() - detectTimer > 2000 &&
+            millis() - lastSwitchTime > 2000 &&
+            currentScene != lastScene) {
 
-            lastScene = targetScene;
+            frame.attribute(
+                'src',
+                pages[currentScene]
+            );
 
+            console.log(
+                "切換到場景:",
+                currentScene
+            );
+
+            lastScene = currentScene;
             lastSwitchTime = millis();
-
-            console.log("切換到場景:", targetScene);
         }
 
         // Debug
@@ -329,7 +332,7 @@ function draw() {
 
         text(
             "Angle: " +
-            nf(umbrellaAngle, 1, 1),
+            nf(smoothAngle, 1, 1),
 
             20,
             300
@@ -343,6 +346,13 @@ function draw() {
             340
         );
     }
+
+    // 座標轉換
+    let mappedX = map(smoothX, 0, video.width, 200, width - 200);
+    let mappedY = map(smoothY, 0, video.height, 100, height - 100);
+
+    // 移動網頁
+    frame.position(mappedX, mappedY);
 
     // Debug 畫面
     image(video, 20, 20, 320, 240);
@@ -367,30 +377,6 @@ function draw() {
     let tx = smoothX / video.width;
     let ty = smoothY / video.height;
     onTrackingUpdate(tx, ty);
-}
-
-function switchScene(sceneNumber) {
-
-    // 淡出
-    frame.style('transition', 'opacity 0.8s ease');
-    frame.style('opacity', '0');
-
-    setTimeout(() => {
-
-        // 換頁
-        frame.attribute(
-            'src',
-            pages[sceneNumber]
-        );
-
-        // 等 iframe 載完再淡入
-        frame.elt.onload = () => {
-
-            frame.style('opacity', '1');
-
-        };
-
-    }, 800);
 }
 
 function windowResized() {

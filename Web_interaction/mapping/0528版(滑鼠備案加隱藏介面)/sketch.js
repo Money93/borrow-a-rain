@@ -21,8 +21,11 @@ let frame;
 let lastSwitchTime = 0;
 let switchCooldown = 1200;
 
-
 let currentPage = 1;
+
+// Debug 顯示控制
+let debugVisible = true;
+let toggleDebugBtn;
 
 const pages = {
     1: "scene1.html",
@@ -34,6 +37,7 @@ const pages = {
 let port;
 let reader;
 let connectBtn;
+
 let latestData = "0"; // 預設為 0
 let lastData = "0";   // 用來記錄上一次的狀態，防止重複觸發播放
 
@@ -43,7 +47,6 @@ let guitarSound;
 
 // p5.js 特有函式：進入 setup 前先載入音檔
 function preload() {
-    // 請確保音檔路徑正確
     rainSound = loadSound('rain.mp3');
     guitarSound = loadSound('guitar.mp3');
 }
@@ -52,15 +55,25 @@ function setup() {
     createCanvas(windowWidth, windowHeight);
     frame = select('#projectFrame');
 
-    // 設定音樂循環播放（這樣聲音才不會放一下就沒了）
     rainSound.setLoop(true);
     guitarSound.setLoop(true);
 
-    // 建立一個按鈕用來連接 Arduino 
-    // 瀏覽器規定：必須由使用者點擊網頁後，網頁才被允許發出聲音與連接 Serial
     connectBtn = createButton('連接 Arduino 並啟用聲音');
     connectBtn.position(20, height - 40);
     connectBtn.mousePressed(connectSerial);
+
+    // 切換 Debug 顯示按鈕
+    toggleDebugBtn = createButton('隱藏調整介面');
+    toggleDebugBtn.position(250, height - 40);
+
+    toggleDebugBtn.mousePressed(() => {
+
+        debugVisible = false;
+
+        // 隱藏按鈕
+        connectBtn.hide();
+        toggleDebugBtn.hide();
+    });
 
     navigator.mediaDevices.enumerateDevices().then(gotDevices);
 }
@@ -68,7 +81,6 @@ function setup() {
 // 監聽並讀取 Arduino 數據
 async function connectSerial() {
     try {
-        // 觸發音訊環境 (AudioContext)，確保點擊按鈕後音樂功能啟用
         userStartAudio();
 
         port = await navigator.serial.requestPort();
@@ -81,7 +93,6 @@ async function connectSerial() {
         const inputStream = decoder.readable;
         reader = inputStream.getReader();
 
-        // 開始播放預設的吉他聲（因為一開始 latestData 預設是 0）
         guitarSound.play();
 
         readLoop();
@@ -132,26 +143,26 @@ function gotDevices(deviceInfos) {
 function draw() {
     background(0);
 
-    //偵測 Arduino 狀態改變，切換畫面與聲音
+    // webcam 還沒準備好時先不要執行
+    if (!video || !video.loadedmetadata) {
+        return;
+    }
+
+    // 偵測 Arduino 狀態改變
     if (latestData !== lastData) {
         if (latestData === "1") {
-            // 1 的時候：畫面全黑，播雨聲
             frame.style('display', 'none');
-
-            guitarSound.stop(); // 停止吉他聲
+            guitarSound.stop();
             if (!rainSound.isPlaying()) {
-                rainSound.play(); // 播放雨聲
+                rainSound.play();
             }
         } else {
-            // 0 的時候：有畫面，播吉他聲
             frame.style('display', 'block');
-
-            rainSound.stop(); // 停止雨聲
+            rainSound.stop();
             if (!guitarSound.isPlaying()) {
-                guitarSound.play(); // 播放吉他聲
+                guitarSound.play();
             }
         }
-        // 更新狀態，避免在 draw() 迴圈中重複執行
         lastData = latestData;
     }
 
@@ -167,233 +178,212 @@ function draw() {
             let b = video.pixels[index + 2];
 
             if (g > 90 && g > r + 20 && g > b + 20) {
-                points.push({
-                    x: x,
-                    y: y,
-                    brightness: g
-                });
+                points.push({ x: x, y: y, brightness: g });
             }
         }
     }
 
-    // 找兩個綠點
-
     if (points.length > 10) {
-
-        // 按照亮度排序
-
-        points.sort(
-            (a, b) =>
-                b.brightness - a.brightness
-        );
-
-        // 最亮點
-
+        points.sort((a, b) => b.brightness - a.brightness);
         let p1 = points[0];
-
-        // 找離 p1 最遠的點
-
         let p2 = p1;
-
         let maxDist = 0;
 
         for (let p of points) {
-
-            let d = dist(
-                p1.x,
-                p1.y,
-                p.x,
-                p.y
-            );
-
+            let d = dist(p1.x, p1.y, p.x, p.y);
             if (d > maxDist) {
-
                 maxDist = d;
                 p2 = p;
             }
         }
 
-        // 中心
+        let targetX = (p1.x + p2.x) / 2;
+        let targetY = (p1.y + p2.y) / 2;
 
-        let targetX =
-            (p1.x + p2.x) / 2;
+        smoothX = lerp(smoothX, targetX, 0.1);
+        smoothY = lerp(smoothY, targetY, 0.1);
 
-        let targetY =
-            (p1.y + p2.y) / 2;
-
-        smoothX = lerp(
-            smoothX,
-            targetX,
-            0.1
-        );
-
-        smoothY = lerp(
-            smoothY,
-            targetY,
-            0.1
-        );
-
-        //算旋轉角度
-
-        umbrellaAngle = degrees(
-
-            atan2(
-                p2.y - p1.y,
-                p2.x - p1.x
-            )
-
-        );
-
-        // 轉成 0~360
-
+        umbrellaAngle = degrees(atan2(p2.y - p1.y, p2.x - p1.x));
         if (umbrellaAngle < 0) {
-
             umbrellaAngle += 360;
         }
 
-        // 三個場景
-
-        if (
-            umbrellaAngle >= 10 &&
-            umbrellaAngle < 110
-        ) {
-
+        // 三個場景角度判斷
+        if (umbrellaAngle >= 10 && umbrellaAngle < 110) {
             currentScene = 1;
-        }
-
-        else if (
-            umbrellaAngle >= 130 &&
-            umbrellaAngle < 230
-        ) {
-
+        } else if (umbrellaAngle >= 130 && umbrellaAngle < 230) {
             currentScene = 2;
-        }
-
-        else if (
-            umbrellaAngle >= 250 &&
-            umbrellaAngle < 350
-        ) {
-
+        } else if (umbrellaAngle >= 250 && umbrellaAngle < 350) {
             currentScene = 3;
         }
 
-        // ===== 停留2秒才切換場景 =====
-
-        // 如果目前偵測到的新場景改變了
+        // 停留 2 秒才切換場景
         if (currentScene != targetScene) {
-
-            // 更新目標場景
             targetScene = currentScene;
-
-            // 重新開始計時
             sceneHoldStart = millis();
         }
 
-        // 如果已經停留超過2秒
         if (
             targetScene != lastScene &&
             millis() - sceneHoldStart > holdTime &&
             millis() - lastSwitchTime > switchCooldown
         ) {
-
             switchScene(targetScene);
-
             lastScene = targetScene;
-
+            currentPage = targetScene; // 同步滑鼠備案的頁碼
             lastSwitchTime = millis();
-
-            console.log("切換到場景:", targetScene);
+            console.log("影像偵測切換到場景:", targetScene);
         }
 
-        // Debug
+        if (debugVisible) {
 
+            // Debug 圓點
+            fill(255, 0, 0);
+
+            circle(
+                map(p1.x, 0, video.width, 20, 340),
+                map(p1.y, 0, video.height, 20, 260),
+                12
+            );
+
+            fill(0, 0, 255);
+
+            circle(
+                map(p2.x, 0, video.width, 20, 340),
+                map(p2.y, 0, video.height, 20, 260),
+                12
+            );
+
+            fill(255);
+
+            textSize(24);
+
+            text(
+                "Angle: " + nf(umbrellaAngle, 1, 1),
+                20,
+                300
+            );
+
+            text(
+                "Scene: " + currentScene,
+                20,
+                340
+            );
+        }
+    }
+
+    // ===== Debug 顯示 =====
+    if (debugVisible) {
+
+        // webcam
+        image(video, 20, 20, 320, 240);
+
+        // 綠點
+        fill(0, 255, 0);
+        noStroke();
+
+        for (let p of points) {
+
+            circle(
+                map(p.x, 0, video.width, 20, 340),
+                map(p.y, 0, video.height, 20, 260),
+                4
+            );
+        }
+
+        // 中心點
         fill(255, 0, 0);
 
         circle(
-            map(p1.x, 0, video.width, 20, 340),
-            map(p1.y, 0, video.height, 20, 260),
-            12
-        );
-
-        fill(0, 0, 255);
-
-        circle(
-            map(p2.x, 0, video.width, 20, 340),
-            map(p2.y, 0, video.height, 20, 260),
-            12
-        );
-
-        fill(255);
-
-        textSize(24);
-
-        text(
-            "Angle: " +
-            nf(umbrellaAngle, 1, 1),
-
-            20,
-            300
-        );
-
-        text(
-            "Scene: " +
-            currentScene,
-
-            20,
-            340
+            map(smoothX, 0, video.width, 20, 340),
+            map(smoothY, 0, video.height, 20, 260),
+            15
         );
     }
-
-    // Debug 畫面
-    image(video, 20, 20, 320, 240);
-    fill(0, 255, 0);
-    noStroke();
-    for (let p of points) {
-        circle(
-            map(p.x, 0, video.width, 20, 340),
-            map(p.y, 0, video.height, 20, 260),
-            4
-        );
-    }
-
-    fill(255, 0, 0);
-    circle(
-        map(smoothX, 0, video.width, 20, 340),
-        map(smoothY, 0, video.height, 20, 260),
-        15
-    );
-
-    // 發送給 TouchDesigner
-    let tx = smoothX / video.width;
-    let ty = smoothY / video.height;
-    onTrackingUpdate(tx, ty);
 }
 
 function switchScene(sceneNumber) {
-
     // 淡出
     frame.style('transition', 'opacity 0.8s ease');
     frame.style('opacity', '0');
 
     setTimeout(() => {
-
         // 換頁
-        frame.attribute(
-            'src',
-            pages[sceneNumber]
-        );
-
+        frame.attribute('src', pages[sceneNumber]);
         // 等 iframe 載完再淡入
         frame.elt.onload = () => {
-
             frame.style('opacity', '1');
-
         };
-
     }, 800);
+}
+
+// ===== 備案機制：按下滑鼠切換至下一頁 =====
+function mousePressed() {
+
+    // ===== 點到按鈕區域時不切換 =====
+
+    if (
+        mouseY > height - 60 &&
+        mouseX < 500
+    ) {
+        return;
+    }
+
+    // ===== 冷卻時間 =====
+
+    if (
+        millis() - lastSwitchTime >
+        switchCooldown
+    ) {
+
+        // 1 -> 2 -> 3 -> 1
+
+        currentPage =
+            (currentPage % 3) + 1;
+
+        // 同步狀態
+
+        currentScene = currentPage;
+        targetScene = currentPage;
+        lastScene = currentPage;
+
+        switchScene(currentPage);
+
+        lastSwitchTime = millis();
+
+        console.log(
+            "備案觸發：滑鼠點擊切換到場景:",
+            currentPage
+        );
+    }
 }
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
     if (connectBtn) connectBtn.position(20, height - 40);
+}
+
+function keyPressed() {
+
+    // 按 D 顯示 / 隱藏 Debug
+    if (key === 'd' || key === 'D') {
+
+        debugVisible = !debugVisible;
+
+        if (debugVisible) {
+
+            // 顯示按鈕
+            connectBtn.show();
+            toggleDebugBtn.show();
+
+            // 恢復按鈕文字
+            toggleDebugBtn.html('隱藏調整介面');
+
+        } else {
+
+            // 隱藏按鈕
+            connectBtn.hide();
+            toggleDebugBtn.hide();
+        }
+    }
 }
