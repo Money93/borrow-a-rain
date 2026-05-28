@@ -230,6 +230,26 @@
             }
         }
 
+        function isTooCloseToExistingText(x, y, minDistance = 180) {
+
+            for (const drop of dropEvents) {
+
+                // 只檢查真正有留言的
+                if (!drop.text || drop.isBg || drop.isBig) continue;
+
+                const dx = x - drop.x;
+                const dy = y - drop.y;
+
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < minDistance) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         // ----------------------------------------------------
         // 3. 傘面上的漣漪與留言
         // ----------------------------------------------------
@@ -327,14 +347,21 @@
                     ctx.shadowBlur = 12;
 
                     ctx.fillStyle = `rgba(240, 248, 255, ${this.textOpacity})`;
+
+                    const dynamicWidth =
+                        this.text.length < 10 ? 220 :
+                            this.text.length < 20 ? 280 :
+                                340;
+
                     drawWrappedText(
                         ctx,
                         this.text,
                         0,
                         0,
-                        300, // 最大寬度
-                        36   // 行距
+                        dynamicWidth,
+                        36
                     );
+
                     ctx.restore();
                 }
             }
@@ -381,11 +408,23 @@
                     const minY = height * 0.28;
                     const maxY = height * 0.72;
 
-                    const dropX =
-                        minX + Math.random() * (maxX - minX);
+                    let dropX, dropY;
+                    let attempts = 0;
 
-                    const dropY =
-                        minY + Math.random() * (maxY - minY);
+                    do {
+
+                        dropX =
+                            minX + Math.random() * (maxX - minX);
+
+                        dropY =
+                            minY + Math.random() * (maxY - minY);
+
+                        attempts++;
+
+                    } while (
+                        isTooCloseToExistingText(dropX, dropY, 220)
+                        && attempts < 30
+                    );
 
                     const text = messagePool[messageIndex];
                     messageIndex = (messageIndex + 1) % messagePool.length;
