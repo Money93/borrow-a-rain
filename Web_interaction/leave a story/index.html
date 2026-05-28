@@ -23,6 +23,31 @@
       src: url('./AaJinRiHuaQing-ChunLanMaoKun.ttf') format('truetype');
     }
 
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #intro {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+    }
+
+    body.intro-mode {
+      background: #0b1b2b;
+    }
+
+    html.intro-mode,
+    body.intro-mode {
+      background: #0b1b2b;
+      overflow: hidden;
+    }
+
     /* 確保全域背景完全一致，消除手機邊緣與中間的色差 */
     body {
       margin: 0;
@@ -54,10 +79,6 @@
       width: 100%;
       background: #f7f3ef;
       /* 確保所有子頁面背景完全一致 */
-    }
-
-    .page.active {
-      display: flex;
     }
 
     .page.show {
@@ -578,25 +599,217 @@
         opacity: 0;
       }
     }
+
+    /* =========================
+🧠 心理測驗頁
+========================= */
+    #quizPage {
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+      background: #f7f3ef;
+      min-height: 100vh;
+    }
+
+    #quizPage .result-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .quiz-card {
+      width: 100%;
+      max-width: 360px;
+      padding: 30px 22px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+
+      box-shadow:
+        0 20px 50px rgba(165, 150, 135, 0.12),
+        0 2px 8px rgba(0, 0, 0, 0.04);
+
+      border: 1px solid rgba(255, 255, 255, 0.7);
+
+      display: flex;
+      flex-direction: column;
+    }
+
+    .quiz-subtitle {
+      text-align: center;
+      color: #7b8790;
+      font-size: 14px;
+      margin-top: -4px;
+      margin-bottom: 26px;
+      font-family: 'Noto Sans TC', sans-serif;
+      line-height: 1.6;
+    }
+
+    /* 題目區塊 */
+    .quiz-question {
+      margin-bottom: 26px;
+    }
+
+    .quiz-question-title {
+      font-size: 16px;
+      margin-bottom: 14px;
+      color: #2f3e46;
+      line-height: 1.5;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-weight: 600;
+    }
+
+    /* 選項 */
+    .quiz-option {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(92, 124, 137, 0.06);
+      border: 1px solid rgba(92, 124, 137, 0.08);
+
+      margin-bottom: 10px;
+
+      transition: all 0.22s ease;
+
+      cursor: pointer;
+
+      font-family: 'Noto Sans TC', sans-serif;
+      color: #334155;
+    }
+
+    .quiz-option:hover {
+      transform: translateY(-2px);
+      background: rgba(92, 124, 137, 0.1);
+    }
+
+    .quiz-option.active {
+      background: rgba(92, 124, 137, 0.18);
+      border: 1px solid rgba(92, 124, 137, 0.25);
+
+      box-shadow:
+        0 6px 14px rgba(92, 124, 137, 0.12);
+    }
+
+    /* 測驗按鈕 */
+    .quiz-submit-btn {
+      margin-top: 10px;
+      padding: 15px;
+      border: none;
+      border-radius: 18px;
+
+      background: linear-gradient(135deg, #5c7c89, #3f5f6b);
+
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+
+      font-family: 'Noto Sans TC', sans-serif;
+
+      box-shadow:
+        0 10px 24px rgba(92, 124, 137, 0.2);
+
+      transition: all 0.2s ease;
+    }
+
+    .quiz-submit-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* 結果頁 */
+    #resultPage {
+      justify-content: center;
+      align-items: center;
+      padding: 30px 20px;
+    }
+
+    .result-wrap {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #resultImage {
+      width: 100%;
+      border-radius: 24px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    .save-tip {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #777;
+      font-family: "Noto Sans TC", sans-serif;
+    }
+
+
+    /* 按鈕區美化 */
+    .result-buttons {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .result-buttons button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 18px;
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      font-family: "Noto Sans TC", sans-serif;
+      background: linear-gradient(135deg, #5c7c89, #3f5f6b);
+      box-shadow: 0 8px 20px rgba(92, 124, 137, 0.18);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* 微光澤與點擊效果 */
+    .result-buttons button:active {
+      transform: scale(0.97);
+      box-shadow: 0 4px 10px rgba(92, 124, 137, 0.12);
+      filter: brightness(0.95);
+    }
+
+
+    .quiz-mini {
+      margin-top: 18px;
+      font-size: 15px;
+      color: #6b7a82;
+      opacity: 0.8;
+      cursor: pointer;
+    }
+
+    .quiz-mini:active {
+      transform: scale(0.98);
+    }
   </style>
 </head>
 
 <body>
 
-  <div class="container">
-    <!-- 🌧️ 開場頁 -->
-    <div id="intro">
-      <div class="intro-wrap">
-        <div class="intro-text">
-          <h2>今天雨很大</h2>
-          <p>這把傘借你</p>
-          <p class="small">但作為交換，請留下一個故事</p>
-        </div>
-        <button class="intro-btn" onclick="enterApp()">撐開這把傘</button>
-        <div class="rain"></div>
+  <!-- 🌧️ 開場頁 -->
+  <div id="intro">
+    <div class="intro-wrap">
+      <div class="intro-text">
+        <h2>今天雨很大</h2>
+        <p>這把傘借你</p>
+        <p class="small">但作為交換，請留下一個故事</p>
       </div>
+      <button class="intro-btn" onclick="enterApp()">撐開這把傘</button>
+      <div class="rain"></div>
     </div>
-
+  </div>
+  <div class="container">
     <!-- 🌙 首頁 (升級美化版) -->
     <div id="home" class="page">
       <div class="floating-rain"></div>
@@ -620,6 +833,9 @@
         <button onclick="goPage('form')">
           <i class="fa-solid fa-pen-nib"></i> 留下你的故事
         </button>
+      </div>
+      <div class="quiz-mini" onclick="goPage('quizPage')">
+        雨天人格測驗（點我玩）
       </div>
     </div>
 
@@ -654,7 +870,68 @@
         <p id="status"></p>
       </div>
     </div>
+    <!-- 🧠 心理測驗頁 -->
+    <div id="quizPage" class="page">
 
+      <div class="result-wrap">
+
+        <div class="quiz-card">
+
+          <div class="form-title">
+            雨中的你
+          </div>
+
+          <p class="quiz-subtitle">
+            回答幾個問題，看看這把傘讀懂了什麼
+          </p>
+
+          <div id="quizContainer"></div>
+
+          <button class="quiz-submit-btn" onclick="showResult()">
+            看看我的雨天人格
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 🌧 人格結果頁 -->
+    <div id="resultPage" class="page">
+
+      <div class="result-wrap">
+
+        <img id="resultImage" src="" alt="人格圖卡">
+
+        <p class="save-tip">
+          長按圖片即可儲存 ☔
+        </p>
+
+        <div class="result-buttons">
+          <button onclick="goPage('timeline')">
+            <i class="fa-solid fa-hourglass-half"></i> 查看時光膠囊
+          </button>
+
+          <button onclick="goPage('home')">
+            <i class="fa-solid fa-house"></i>
+            回到首頁
+          </button>
+          <button onclick="shareResultIG()">
+            <i class="fa-solid fa-share-nodes"></i> 分享到社群
+          </button>
+
+          <button onclick="downloadResult()">
+            <i class="fa-solid fa-download"></i> 下載圖片
+          </button>
+
+          <button onclick="copyCaption()">
+            <i class="fa-solid fa-clipboard"></i> 複製IG文案
+          </button>
+        </div>
+
+      </div>
+    </div>
   </div>
 
   <script>
@@ -683,6 +960,7 @@
 
       if (pageId === "home") loadJourney();
       if (pageId === "timeline") loadMessages();
+      if (pageId === "quizPage") loadQuiz();
     }
 
     function enterApp() {
@@ -751,7 +1029,66 @@
         document.getElementById("messages").innerText = "無法載入時光膠囊 ☁️";
       }
     }
+    /* =========================
+    🧠 心理測驗題目
+    ========================= */
 
+    const quizQuestions = [
+      {
+        question: "如果突然下雨，你通常會？",
+        options: [
+          { text: "找地方躲起來等雨停", type: "cloudy", weight: 2 },
+          { text: "慢慢走，享受雨聲", type: "drizzle", weight: 3 },
+          { text: "撐著傘快速離開", type: "storm", weight: 1 },
+          { text: "覺得有點浪漫", type: "shower", weight: 2 },
+          { text: "反而更開心空氣變好", type: "sunny", weight: 3 }
+        ]
+      },
+
+      {
+        question: "你最常把情緒藏在哪裡？",
+        options: [
+          { text: "爆發前的沉默", type: "storm", weight: 3 },
+          { text: "日常的小細節", type: "drizzle", weight: 2 },
+          { text: "不被注意的角落", type: "cloudy", weight: 3 },
+          { text: "忽冷忽熱的互動", type: "shower", weight: 2 },
+          { text: "看起來很正常的笑容", type: "sunny", weight: 1 }
+        ]
+      },
+
+      {
+        question: "現在的你，比較像哪種天氣？",
+        options: [
+          { text: "暴雨（很滿、很亂）", type: "storm", weight: 3 },
+          { text: "毛毛雨（穩定但持續）", type: "drizzle", weight: 3 },
+          { text: "陰天（不明確）", type: "cloudy", weight: 3 },
+          { text: "陣雨（情緒波動）", type: "shower", weight: 3 },
+          { text: "晴天（穩定舒服）", type: "sunny", weight: 3 }
+        ]
+      },
+
+      {
+        question: "你最害怕的是？",
+        options: [
+          { text: "情緒失控", type: "storm", weight: 3 },
+          { text: "沒有人真正懂你", type: "drizzle", weight: 3 },
+          { text: "長時間的空白感", type: "cloudy", weight: 3 },
+          { text: "關係忽遠忽近", type: "shower", weight: 3 },
+          { text: "失去現在的平靜", type: "sunny", weight: 2 }
+        ]
+      },
+
+      {
+        question: "如果有人替你撐傘，你會？",
+        options: [
+          { text: "忍不住想哭", type: "storm", weight: 2 },
+          { text: "默默記在心裡", type: "drizzle", weight: 3 },
+          { text: "不知道怎麼回應", type: "cloudy", weight: 2 },
+          { text: "一下靠近一下退開", type: "shower", weight: 3 },
+          { text: "也想成為撐傘的人", type: "sunny", weight: 3 }
+        ]
+      }
+    ];
     /* ✉️ 送出故事 */
     async function submitData() {
       const mood = document.getElementById("mood").value;
@@ -778,12 +1115,182 @@
         document.getElementById("message").value = "";
         document.getElementById("instagram").value = "";
 
-        setTimeout(() => { goPage('home'); }, 1200);
+        setTimeout(() => {
+
+          loadQuiz();
+
+          goPage("quizPage");
+
+        }, 1200);
+
       } catch (e) {
         status.innerText = "好像斷線了，請再試一次 ☕";
       }
     }
+    let selectedAnswers = [];
 
+    /* 產生測驗 */
+    function loadQuiz() {
+
+      selectedAnswers = [];
+
+      const container = document.getElementById("quizContainer");
+
+      container.innerHTML = "";
+
+      quizQuestions.forEach((q, index) => {
+
+        const block = document.createElement("div");
+
+        block.className = "quiz-question";
+
+        block.innerHTML = `
+<div class="quiz-question-title">
+        ${index + 1}. ${q.question}
+      </div>
+    `;
+
+        q.options.forEach(option => {
+
+          const btn = document.createElement("div");
+
+          btn.className = "quiz-option";
+
+          btn.style.marginBottom = "8px";
+
+          btn.innerHTML = `
+        <div class="rain-name">${option.text}</div>
+      `;
+
+          btn.onclick = () => {
+
+            selectedAnswers[index] = option.type;
+
+            block.querySelectorAll(".rain-option").forEach(el => {
+              el.style.background = "rgba(92,124,137,0.06)";
+              el.style.border = "1px solid rgba(92,124,137,0.08)";
+            });
+
+            block.querySelectorAll(".quiz-option").forEach(el => {
+              el.classList.remove("active");
+            });
+
+            btn.classList.add("active");
+          };
+
+          block.appendChild(btn);
+        });
+
+        container.appendChild(block);
+      });
+    }
+    /* 顯示測驗結果 */
+    function showResult() {
+
+      if (selectedAnswers.length < quizQuestions.length) {
+        alert("還有問題沒回答 ☔");
+        return;
+      }
+
+      const score = {
+        storm: 0,
+        drizzle: 0,
+        cloudy: 0,
+        shower: 0,
+        sunny: 0
+      };
+
+      selectedAnswers.forEach((type, index) => {
+        const q = quizQuestions[index];
+
+        const selectedOption = q.options.find(o => o.type === type);
+
+        if (selectedOption) {
+          score[type] += selectedOption.weight || 1;
+        }
+      });
+
+      const resultType = Object.keys(score).reduce((a, b) =>
+        score[a] > score[b] ? a : b
+      );
+
+      const imageMap = {
+        storm: "./storm.JPG",
+        drizzle: "./drizzle.JPG",
+        cloudy: "./cloudy.JPG",
+        shower: "./shower.JPG",
+        sunny: "./sunny.JPG"
+      };
+
+      document.getElementById("resultImage").src =
+        imageMap[resultType];
+
+      goPage("resultPage");
+    }
+    /*分享社群*/
+    async function shareResultIG() {
+      const img = document.getElementById("resultImage");
+
+      try {
+        const res = await fetch(img.src);
+        const blob = await res.blob();
+        const file = new File([blob], "rain-result.jpg", { type: "image/jpeg" });
+
+        const caption = `我在《漂流傘》測出的雨天人格 ☔\n\n你也來試試看你的天氣是哪一種？`;
+
+        // 原生分享（手機最強）
+        if (navigator.share && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: "雨天人格測驗",
+            text: caption,
+            files: [file]
+          });
+        } else {
+          // fallback：無法分享圖片就複製文案
+          await navigator.clipboard.writeText(caption);
+          alert("你的裝置不支援圖片分享，已幫你複製文案！");
+        }
+
+      } catch (err) {
+        console.log(err);
+        alert("分享失敗，請改用下載方式 ☔");
+      }
+    }
+    function downloadResult() {
+      const img = document.getElementById("resultImage");
+
+      const a = document.createElement("a");
+      a.href = img.src;
+      a.download = `漂流傘_雨天人格.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    function copyCaption() {
+      const img = document.getElementById("resultImage");
+
+      const captions = {
+        storm: "我像暴雨一樣的情緒，你接得住嗎？☔",
+        drizzle: "我是一場慢慢下的雨，不吵，但一直在。🌧️",
+        cloudy: "我有點陰天，但還在努力變亮。☁️",
+        shower: "忽晴忽雨，是我最真實的樣子。🌦️",
+        sunny: "我看起來很晴天，但也曾下過雨。☀️"
+      };
+
+      // 從圖片路徑抓類型
+      const src = img.src;
+      const type = Object.keys(captions).find(t => src.includes(t));
+
+      const text =
+        `《漂流傘 ☔》
+${captions[type] || "我正在雨裡整理自己"}
+
+#漂流傘 #雨天人格 #心理測驗 #情緒天氣`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        alert("IG文案已複製！");
+      });
+    }
     /* 初始化背景雨滴 (開場頁用) */
     function createRain() {
       const rain = document.querySelector(".rain");
