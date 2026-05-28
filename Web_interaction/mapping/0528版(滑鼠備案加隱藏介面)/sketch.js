@@ -70,12 +70,17 @@ function setup() {
 
         debugVisible = false;
 
+        // 隱藏滑鼠
+        document.body.style.cursor = 'none';
+
         // 隱藏按鈕
         connectBtn.hide();
         toggleDebugBtn.hide();
     });
 
     navigator.mediaDevices.enumerateDevices().then(gotDevices);
+
+    document.body.style.cursor = 'default';
 }
 
 // 監聽並讀取 Arduino 數據
@@ -372,6 +377,9 @@ function keyPressed() {
 
         if (debugVisible) {
 
+            // 顯示滑鼠
+            document.body.style.cursor = 'default';
+
             // 顯示按鈕
             connectBtn.show();
             toggleDebugBtn.show();
@@ -380,6 +388,9 @@ function keyPressed() {
             toggleDebugBtn.html('隱藏調整介面');
 
         } else {
+
+            // 隱藏滑鼠
+            document.body.style.cursor = 'none';
 
             // 隱藏按鈕
             connectBtn.hide();
