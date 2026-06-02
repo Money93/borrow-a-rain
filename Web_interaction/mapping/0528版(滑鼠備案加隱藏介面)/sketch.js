@@ -12,16 +12,35 @@ let points = [];
 let smoothX = 0;
 let smoothY = 0;
 let umbrellaAngle = 0;
-let currentScene = 1;
-let lastScene = 1;
-let targetScene = 1;
-let sceneHoldStart = 0;
-let holdTime = 2000; // 停留2秒
+let lastAngle = 0;
+
+// ⭐【相對角度累積核心變數】
+let accumulatedAngle = 0; 
+let triggerThreshold = 75; // 填寫觸發度數。雨傘單向轉動超過此度數就會切換一頁（可依手感微調，建議 70 ~ 90）
+
+let transitionDirection = 0; // -1 左 / +1 右
+let currentPage = 1;
+
 let frame;
 let lastSwitchTime = 0;
-let switchCooldown = 1200;
+let switchCooldown = 1500; // 過場冷卻時間 1.5 秒（這期間內怎麼轉都不會重複觸發）
 
-let currentPage = 1;
+let transitionCanvas;
+let transitionCtx;
+
+// 3點偵測平滑變數
+let smoothP1X = 0, smoothP1Y = 0;
+let smoothP2X = 0, smoothP2Y = 0;
+let smoothP3X = 0, smoothP3Y = 0;
+
+// 傾斜形變修正係數
+let tiltScaleY = 1.35; 
+
+// 過場狀態控制
+let transitionRunning = false;
+let transitionSwitched = false;
+let transitionTargetScene = 1;
+let transitionFrameCount = 0;
 
 // Debug 顯示控制
 let debugVisible = true;
@@ -38,14 +57,15 @@ let port;
 let reader;
 let connectBtn;
 
-let latestData = "0"; // 預設為 0
-let lastData = "0";   // 用來記錄上一次的狀態，防止重複觸發播放
+let latestData = "0"; 
+let lastData = "0";   
 
 // 音樂相關變數
 let rainSound;
 let guitarSound;
 
-// p5.js 特有函式：進入 setup 前先載入音檔
+let meteors = [];
+
 function preload() {
     rainSound = loadSound('rain.mp3');
     guitarSound = loadSound('guitar.mp3');
@@ -55,6 +75,11 @@ function setup() {
     createCanvas(windowWidth, windowHeight);
     frame = select('#projectFrame');
 
+    transitionCanvas = document.getElementById("transitionCanvas");
+    transitionCtx = transitionCanvas.getContext("2d");
+    transitionCanvas.width = window.innerWidth;
+    transitionCanvas.height = window.innerHeight;
+
     rainSound.setLoop(true);
     guitarSound.setLoop(true);
 
@@ -62,32 +87,22 @@ function setup() {
     connectBtn.position(20, height - 40);
     connectBtn.mousePressed(connectSerial);
 
-    // 切換 Debug 顯示按鈕
     toggleDebugBtn = createButton('隱藏調整介面');
     toggleDebugBtn.position(250, height - 40);
-
     toggleDebugBtn.mousePressed(() => {
-
         debugVisible = false;
-
-        // 隱藏滑鼠
         document.body.style.cursor = 'none';
-
-        // 隱藏按鈕
         connectBtn.hide();
         toggleDebugBtn.hide();
     });
 
     navigator.mediaDevices.enumerateDevices().then(gotDevices);
-
     document.body.style.cursor = 'default';
 }
 
-// 監聽並讀取 Arduino 數據
 async function connectSerial() {
     try {
         userStartAudio();
-
         port = await navigator.serial.requestPort();
         await port.open({ baudRate: 9600 });
         connectBtn.html('Arduino 已連接');
@@ -99,7 +114,6 @@ async function connectSerial() {
         reader = inputStream.getReader();
 
         guitarSound.play();
-
         readLoop();
     } catch (err) {
         console.error('序列埠連接失敗:', err);
@@ -148,25 +162,19 @@ function gotDevices(deviceInfos) {
 function draw() {
     background(0);
 
-    // webcam 還沒準備好時先不要執行
     if (!video || !video.loadedmetadata) {
         return;
     }
 
-    // 偵測 Arduino 狀態改變
     if (latestData !== lastData) {
         if (latestData === "1") {
             frame.style('display', 'none');
             guitarSound.stop();
-            if (!rainSound.isPlaying()) {
-                rainSound.play();
-            }
+            if (!rainSound.isPlaying()) rainSound.play();
         } else {
             frame.style('display', 'block');
             rainSound.stop();
-            if (!guitarSound.isPlaying()) {
-                guitarSound.play();
-            }
+            if (!guitarSound.isPlaying()) guitarSound.play();
         }
         lastData = latestData;
     }
@@ -174,7 +182,7 @@ function draw() {
     video.loadPixels();
     points = [];
 
-    // 找綠點
+    // 找綠點像素
     for (let y = 0; y < video.height; y += 4) {
         for (let x = 0; x < video.width; x += 4) {
             let index = (x + y * video.width) * 4;
@@ -188,211 +196,283 @@ function draw() {
         }
     }
 
-    if (points.length > 10) {
+    // 3點獨立提取演算法
+    if (points.length > 15) {
         points.sort((a, b) => b.brightness - a.brightness);
+        
         let p1 = points[0];
-        let p2 = p1;
-        let maxDist = 0;
+        let p2 = null;
+        let p3 = null;
+        let minDist = 45; 
 
         for (let p of points) {
-            let d = dist(p1.x, p1.y, p.x, p.y);
-            if (d > maxDist) {
-                maxDist = d;
+            if (dist(p.x, p.y, p1.x, p1.y) > minDist) {
                 p2 = p;
+                break;
             }
         }
 
-        let targetX = (p1.x + p2.x) / 2;
-        let targetY = (p1.y + p2.y) / 2;
-
-        smoothX = lerp(smoothX, targetX, 0.1);
-        smoothY = lerp(smoothY, targetY, 0.1);
-
-        umbrellaAngle = degrees(atan2(p2.y - p1.y, p2.x - p1.x));
-        if (umbrellaAngle < 0) {
-            umbrellaAngle += 360;
+        if (p2) {
+            for (let p of points) {
+                if (dist(p.x, p.y, p1.x, p1.y) > minDist && dist(p.x, p.y, p2.x, p2.y) > minDist) {
+                    p3 = p;
+                    break;
+                }
+            }
         }
 
-        // 三個場景角度判斷
-        if (umbrellaAngle >= 10 && umbrellaAngle < 110) {
-            currentScene = 1;
-        } else if (umbrellaAngle >= 130 && umbrellaAngle < 230) {
-            currentScene = 2;
-        } else if (umbrellaAngle >= 250 && umbrellaAngle < 350) {
-            currentScene = 3;
-        }
+        // 成功抓到 3 個獨立綠點
+        if (p1 && p2 && p3) {
+            let raws = [p1, p2, p3];
 
-        // 停留 2 秒才切換場景
-        if (currentScene != targetScene) {
-            targetScene = currentScene;
-            sceneHoldStart = millis();
-        }
+            if (smoothP1X === 0 && smoothP1Y === 0) {
+                smoothP1X = p1.x; smoothP1Y = p1.y;
+                smoothP2X = p2.x; smoothP2Y = p2.y;
+                smoothP3X = p3.x; smoothP3Y = p3.y;
+                lastAngle = degrees(atan2((smoothP1Y - (smoothP1Y+smoothP2Y+smoothP3Y)/3)*tiltScaleY, smoothP1X - (smoothP1X+smoothP2X+smoothP3X)/3));
+            } else {
+                // 三階全排列配對機制
+                let permutations = [
+                    [0, 1, 2], [0, 2, 1],
+                    [1, 0, 2], [1, 2, 0],
+                    [2, 0, 1], [2, 1, 0]
+                ];
+                let bestOrder = permutations[0];
+                let minTotalDist = Infinity;
 
-        if (
-            targetScene != lastScene &&
-            millis() - sceneHoldStart > holdTime &&
-            millis() - lastSwitchTime > switchCooldown
-        ) {
-            switchScene(targetScene);
-            lastScene = targetScene;
-            currentPage = targetScene; // 同步滑鼠備案的頁碼
-            lastSwitchTime = millis();
-            console.log("影像偵測切換到場景:", targetScene);
-        }
+                for (let order of permutations) {
+                    let d1 = dist(raws[order[0]].x, raws[order[0]].y, smoothP1X, smoothP1Y);
+                    let d2 = dist(raws[order[1]].x, raws[order[1]].y, smoothP2X, smoothP2Y);
+                    let d3 = dist(raws[order[2]].x, raws[order[2]].y, smoothP3X, smoothP3Y);
+                    let total = d1 + d2 + d3;
+                    if (total < minTotalDist) {
+                        minTotalDist = total;
+                        bestOrder = order;
+                    }
+                }
 
-        if (debugVisible) {
+                smoothP1X = lerp(smoothP1X, raws[bestOrder[0]].x, 0.15);
+                smoothP1Y = lerp(smoothP1Y, raws[bestOrder[0]].y, 0.15);
+                smoothP2X = lerp(smoothP2X, raws[bestOrder[1]].x, 0.15);
+                smoothP2Y = lerp(smoothP2Y, raws[bestOrder[1]].y, 0.15);
+                smoothP3X = lerp(smoothP3X, raws[bestOrder[2]].x, 0.15);
+                smoothP3Y = lerp(smoothP3Y, raws[bestOrder[2]].y, 0.15);
+            }
 
-            // Debug 圓點
-            fill(255, 0, 0);
+            // 幾何重心計算
+            let centroidX = (smoothP1X + smoothP2X + smoothP3X) / 3;
+            let centroidY = (smoothP1Y + smoothP2Y + smoothP3Y) / 3;
 
-            circle(
-                map(p1.x, 0, video.width, 20, 340),
-                map(p1.y, 0, video.height, 20, 260),
-                12
-            );
+            smoothX = lerp(smoothX, centroidX, 0.1);
+            smoothY = lerp(smoothY, centroidY, 0.1);
 
-            fill(0, 0, 255);
+            // 傾斜形變修正
+            let dx = smoothP1X - centroidX;
+            let dy = (smoothP1Y - centroidY) * tiltScaleY;
 
-            circle(
-                map(p2.x, 0, video.width, 20, 340),
-                map(p2.y, 0, video.height, 20, 260),
-                12
-            );
+            // 計算當前角度
+            umbrellaAngle = degrees(atan2(dy, dx));
+            if (umbrellaAngle < 0) umbrellaAngle += 360;
 
-            fill(255);
+            // 計算這影格與上一影格的角度差量
+            let diff = umbrellaAngle - lastAngle;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
 
-            textSize(24);
+            lastAngle = umbrellaAngle;
 
-            text(
-                "Angle: " + nf(umbrellaAngle, 1, 1),
-                20,
-                300
-            );
+            // ⭐【核心邏輯：相對角度累積判斷】
+            if (millis() - lastSwitchTime > switchCooldown) {
+                // 如果有明顯轉動（過濾掉非常微小的噪點抖動，並防止追蹤瞬間跳變的大異常值）
+                if (Math.abs(diff) > 0.4 && Math.abs(diff) < 35) {
+                    accumulatedAngle += diff; 
+                } else if (Math.abs(diff) <= 0.4) {
+                    // 當雨傘靜止不動時，讓累積量緩慢衰減回0，防止長期待機累積微小誤差
+                    accumulatedAngle *= 0.92; 
+                }
 
-            text(
-                "Scene: " + currentScene,
-                20,
-                340
-            );
+                // 檢查是否達到順時針或逆時針的觸發條件
+                if (accumulatedAngle >= triggerThreshold) {
+                    // 順時針轉動達標 -> 切換至下一頁 (1 -> 2 -> 3 -> 1)
+                    let targetScene = (currentPage % 3) + 1;
+                    transitionDirection = 1; 
+                    
+                    switchScene(targetScene);
+                    currentPage = targetScene;
+                    lastSwitchTime = millis();
+                    accumulatedAngle = 0; // 觸發後立刻清空格子
+                    console.log("動作觸發：順時針旋轉切換至網頁:", targetScene);
+
+                } else if (accumulatedAngle <= -triggerThreshold) {
+                    // 逆時針轉動達標 -> 切換至上一頁 (1 -> 3 -> 2 -> 1)
+                    let targetScene = currentPage - 1;
+                    if (targetScene < 1) targetScene = 3;
+                    transitionDirection = -1; 
+                    
+                    switchScene(targetScene);
+                    currentPage = targetScene;
+                    lastSwitchTime = millis();
+                    accumulatedAngle = 0; // 觸發後立刻清空格子
+                    console.log("動作觸發：逆時針旋轉切換至網頁:", targetScene);
+                }
+            } else {
+                // 🚫 在過場動畫冷卻期間，強制將累積角度持續清空，確保轉太多圈也不會排隊觸發下一次
+                accumulatedAngle = 0;
+            }
+
+            // Debug 繪製 3 個追蹤點
+            if (debugVisible) {
+                fill(255, 0, 0);
+                circle(map(smoothP1X, 0, video.width, 20, 340), map(smoothP1Y, 0, video.height, 20, 260), 12);
+                fill(0, 0, 255);
+                circle(map(smoothP2X, 0, video.width, 20, 340), map(smoothP2Y, 0, video.height, 20, 260), 12);
+                fill(255, 255, 0);
+                circle(map(smoothP3X, 0, video.width, 20, 340), map(smoothP3Y, 0, video.height, 20, 260), 12);
+                
+                fill(255);
+                textSize(20);
+                text("Angle: " + nf(umbrellaAngle, 1, 1) + "°", 20, 290);
+                text("Accumulated: " + nf(accumulatedAngle, 1, 1) + "° / " + triggerThreshold + "°", 20, 320);
+                text("Current Page: " + currentPage, 20, 350);
+            }
         }
     }
 
-    // ===== Debug 顯示 =====
     if (debugVisible) {
-
-        // webcam
         image(video, 20, 20, 320, 240);
-
-        // 綠點
-        fill(0, 255, 0);
+        fill(0, 255, 0, 100);
         noStroke();
-
         for (let p of points) {
+            circle(map(p.x, 0, video.width, 20, 340), map(p.y, 0, video.height, 20, 260), 4);
+        }
+        // 重心: 紫色大圈
+        fill(255, 0, 255);
+        circle(map(smoothX, 0, video.width, 20, 340), map(smoothY, 0, video.height, 20, 260), 16);
+    }
 
-            circle(
-                map(p.x, 0, video.width, 20, 340),
-                map(p.y, 0, video.height, 20, 260),
-                4
-            );
+    // 流星過場動畫主迴圈
+    if (transitionRunning) {
+        transitionCtx.fillStyle = "rgba(0,0,0,0.18)"; 
+        transitionCtx.fillRect(0, 0, transitionCanvas.width, transitionCanvas.height);
+
+        for (let i = meteors.length - 1; i >= 0; i--) {
+            let m = meteors[i];
+            m.update();
+            m.draw(transitionCtx);
+
+            if (m.life <= 0) {
+                meteors.splice(i, 1);
+            }
         }
 
-        // 中心點
-        fill(255, 0, 0);
+        transitionFrameCount++;
 
-        circle(
-            map(smoothX, 0, video.width, 20, 340),
-            map(smoothY, 0, video.height, 20, 260),
-            15
-        );
+        if (!transitionSwitched && transitionFrameCount >= 25) {
+            transitionSwitched = true;
+            frame.attribute('src', pages[transitionTargetScene]);
+        }
+
+        if (meteors.length === 0) {
+            transitionRunning = false;
+            transitionCtx.clearRect(0, 0, transitionCanvas.width, transitionCanvas.height);
+        }
     }
 }
 
 function switchScene(sceneNumber) {
-    // 淡出
-    frame.style('transition', 'opacity 0.8s ease');
-    frame.style('opacity', '0');
+    meteors = []; 
+    transitionSwitched = false;
+    transitionTargetScene = sceneNumber;
+    transitionFrameCount = 0;
 
-    setTimeout(() => {
-        // 換頁
-        frame.attribute('src', pages[sceneNumber]);
-        // 等 iframe 載完再淡入
-        frame.elt.onload = () => {
-            frame.style('opacity', '1');
-        };
-    }, 800);
+    for (let i = 0; i < 30; i++) {
+        meteors.push(new Meteor(transitionDirection));
+    }
+    transitionRunning = true;
 }
 
-// ===== 備案機制：按下滑鼠切換至下一頁 =====
+class Meteor {
+    constructor(dir) {
+        this.dir = dir;
+
+        // ⭐【流星飛入方向對調核心修改處】
+        if (dir === 1) {
+            this.x = window.innerWidth + 200;
+            this.angle = Math.PI - 0.4; 
+        } else {
+            this.x = -200;
+            this.angle = 0.4; 
+        }
+
+        this.y = Math.random() * window.innerHeight * 0.8;
+        this.len = Math.random() * 200 + 150;
+        this.speed = Math.random() * 22 + 16;
+        this.life = 1.0;
+    }
+
+    update() {
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+        this.life -= 0.015; 
+    }
+
+    draw(ctx) {
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(
+            this.x - Math.cos(this.angle) * this.len,
+            this.y - Math.sin(this.angle) * this.len
+        );
+
+        let g = ctx.createLinearGradient(
+            this.x, this.y,
+            this.x - Math.cos(this.angle) * this.len,
+            this.y - Math.sin(this.angle) * this.len
+        );
+
+        g.addColorStop(0, "rgba(255,255,255,0.9)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+
+        ctx.strokeStyle = g;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+    }
+}
+
 function mousePressed() {
-
-    // ===== 點到按鈕區域時不切換 =====
-
-    if (
-        mouseY > height - 60 &&
-        mouseX < 500
-    ) {
+    if (mouseY > height - 60 && mouseX < 500) {
         return;
     }
 
-    // ===== 冷卻時間 =====
-
-    if (
-        millis() - lastSwitchTime >
-        switchCooldown
-    ) {
-
-        // 1 -> 2 -> 3 -> 1
-
-        currentPage =
-            (currentPage % 3) + 1;
-
-        // 同步狀態
-
-        currentScene = currentPage;
-        targetScene = currentPage;
-        lastScene = currentPage;
-
+    if (millis() - lastSwitchTime > switchCooldown) {
+        currentPage = (currentPage % 3) + 1;
+        transitionDirection = 1; 
         switchScene(currentPage);
-
         lastSwitchTime = millis();
-
-        console.log(
-            "備案觸發：滑鼠點擊切換到場景:",
-            currentPage
-        );
+        accumulatedAngle = 0;
+        console.log("備案觸發：滑鼠點擊切換到場景:", currentPage);
     }
 }
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
     if (connectBtn) connectBtn.position(20, height - 40);
+    if (transitionCanvas) {
+        transitionCanvas.width = window.innerWidth;
+        transitionCanvas.height = window.innerHeight;
+    }
 }
 
 function keyPressed() {
-
-    // 按 D 顯示 / 隱藏 Debug
     if (key === 'd' || key === 'D') {
-
         debugVisible = !debugVisible;
-
         if (debugVisible) {
-
-            // 顯示滑鼠
             document.body.style.cursor = 'default';
-
-            // 顯示按鈕
             connectBtn.show();
             toggleDebugBtn.show();
-
-            // 恢復按鈕文字
             toggleDebugBtn.html('隱藏調整介面');
-
         } else {
-
-            // 隱藏滑鼠
             document.body.style.cursor = 'none';
-
-            // 隱藏按鈕
             connectBtn.hide();
             toggleDebugBtn.hide();
         }
