@@ -1,15 +1,30 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>second</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #020617; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; }
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #020617;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
     </style>
 </head>
+
 <body>
     <canvas id="canvas"></canvas>
 
@@ -17,10 +32,10 @@
         const SHEET_API = "https://opensheet.elk.sh/1A5k99fbXf9kFppiZBPSUBy6l8TGGDudqwtB9DA5Suws/data";
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        
+
         let width, height, centerX, centerY;
-        const BOX_SIZE = 600; 
-        
+        const BOX_SIZE = 600;
+
         let bubbles = [], fallingDrops = [], splashes = [];
         let frameCount = 0, state = 'START', rainIntensity = 0;
         let hasNotifiedParent = false;
@@ -31,16 +46,16 @@
                 this.radius = 40 + (count * 10);
                 // 從中間上方掉落
                 this.x = centerX;
-                this.y = -this.radius * 2 - (index * 100); 
-                
-                this.targetY = centerY + (Math.random() * 200 - 100);
+                this.y = -this.radius * 2 - (index * 100);
+
+                this.targetY = centerY + 120 + (Math.random() * 200 - 100);
                 this.speedY = 2 + Math.random();
                 this.isFalling = true;
 
                 const angle = Math.random() * Math.PI * 2;
                 this.vx = Math.cos(angle) * 0.5;
                 this.vy = Math.sin(angle) * 0.5;
-                this.opacity = 0; 
+                this.opacity = 0;
             }
 
             update(allBubbles) {
@@ -48,13 +63,13 @@
                     this.y += this.speedY;
                     if (this.y >= this.targetY) this.isFalling = false;
                 } else {
-                    this.x += this.vx; 
+                    this.x += this.vx;
                     this.y += this.vy;
-                    
+
                     const minX = centerX - BOX_SIZE / 2 + this.radius;
                     const maxX = centerX + BOX_SIZE / 2 - this.radius;
-                    const minY = centerY - BOX_SIZE / 2 + this.radius;
-                    const maxY = centerY + BOX_SIZE / 2 - this.radius;
+                    const minY = centerY - BOX_SIZE / 2 + this.radius + 100; // 頂部邊界下移，不讓泡泡飄太高
+                    const maxY = centerY + BOX_SIZE / 2 - this.radius + 100; // 底部邊界下移，容許泡泡待在更下面
 
                     for (let other of allBubbles) {
                         if (other === this || other.isFalling) continue;
@@ -75,7 +90,7 @@
                 }
                 if (this.opacity < 1) this.opacity += 0.01;
             }
-            
+
             draw() {
                 ctx.globalAlpha = this.opacity;
                 ctx.beginPath();
@@ -143,7 +158,7 @@
                 const data = await res.json();
                 const stats = {};
                 data.forEach(i => { if (i.mood) stats[i.mood] = (stats[i.mood] || 0) + 1; });
-                
+
                 // 根據數量排序：最多人的排在前面
                 const sortedMoods = Object.keys(stats).sort((a, b) => stats[b] - stats[a]);
                 sortedMoods.forEach((m, idx) => {
@@ -169,7 +184,7 @@
             for (let i = fallingDrops.length - 1; i >= 0; i--) {
                 const d = fallingDrops[i];
                 if (d.update()) {
-                    for(let j=0; j<(d.isBig?8:2); j++) splashes.push(new Splash(d.targetX, d.targetY, d.isBig));
+                    for (let j = 0; j < (d.isBig ? 8 : 2); j++) splashes.push(new Splash(d.targetX, d.targetY, d.isBig));
                     fallingDrops.splice(i, 1);
                     if (d.isBig && state === 'START') state = 'RAINING';
                 } else d.draw(ctx);
@@ -193,4 +208,5 @@
         });
     </script>
 </body>
+
 </html>
