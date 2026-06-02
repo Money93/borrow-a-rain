@@ -405,19 +405,18 @@
                     const minX = width * 0.28;
                     const maxX = width * 0.72;
 
-                    const minY = height * 0.28;
-                    const maxY = height * 0.72;
+                    const minY = height * 0.32;
+                    const maxY = height * 0.8;
 
                     let dropX, dropY;
                     let attempts = 0;
 
                     do {
+                        dropX = minX + Math.random() * (maxX - minX);
 
-                        dropX =
-                            minX + Math.random() * (maxX - minX);
-
-                        dropY =
-                            minY + Math.random() * (maxY - minY);
+                        // 運用開根號產生權重，讓 randomBias 靠近 1 的機率大幅提升
+                        let randomBias = Math.sqrt(Math.random());
+                        dropY = minY + randomBias * (maxY - minY);
 
                         attempts++;
 
